@@ -3,85 +3,157 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no" />
-  <meta name="theme-color" content="#101114" />
-  <title>Music & Beats Looper</title>
+  <meta name="theme-color" content="#090a0d" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Music & Beats" />
+  <title>Music & Beats</title>
   <link rel="manifest" href="manifest.webmanifest" />
   <link rel="icon" href="icon.svg" type="image/svg+xml" />
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <header class="topbar">
-    <div>
-      <h1>Music & Beats</h1>
-      <p>6-layer live looper</p>
-    </div>
-    <div class="transport">
-      <button id="audioBtn" class="primary">Enable Audio</button>
-      <button id="transportBtn">▶ Play</button>
-      <button id="saveBtn">Save</button>
-    </div>
-  </header>
-
-  <main>
-    <section class="panel session-controls">
-      <label>BPM <input id="bpm" type="number" min="40" max="220" value="100" /></label>
-      <label>Swing <input id="swing" type="range" min="0" max="60" value="8" /><span id="swingValue">8%</span></label>
-      <label class="check"><input id="metronome" type="checkbox" /> Metronome</label>
-      <label class="check"><input id="monitorInput" type="checkbox" /> Monitor input</label>
-      <label>Audio input <select id="inputDevice"><option value="">Default iPad input</option></select></label>
-      <button id="refreshInputs">Refresh inputs</button>
-      <span id="status" class="status">Audio is off</span>
-    </section>
-
-    <section class="panel">
-      <div class="section-head">
-        <div><h2>Looper</h2><p>Choose Input, Keyboard or Beats as the source for each layer.</p></div>
-        <button id="clearAll">Clear all</button>
+  <div class="app-shell">
+    <header class="app-header">
+      <div class="brand-lockup">
+        <div class="brand-mark" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
+        <div>
+          <div class="eyebrow">LIVE WORKSTATION</div>
+          <h1>Music & Beats</h1>
+        </div>
       </div>
-      <div id="tracks" class="tracks"></div>
+      <div class="header-actions">
+        <span id="engineBadge" class="status-pill"><span class="status-dot"></span>Engine off</span>
+        <button id="saveBtn" class="icon-action" type="button" aria-label="Save project">Save project</button>
+      </div>
+    </header>
+
+    <section class="transport-dock" aria-label="Transport controls">
+      <button id="audioBtn" class="engine-button" type="button">
+        <span class="engine-icon">◉</span>
+        <span><strong>Start audio</strong><small>Tap once before playing</small></span>
+      </button>
+
+      <div class="transport-center">
+        <button id="transportBtn" class="play-button" type="button" aria-label="Play all loops">▶</button>
+        <div class="tempo-control">
+          <button id="bpmDown" type="button" aria-label="Decrease BPM">−</button>
+          <label for="bpm"><span>BPM</span><input id="bpm" inputmode="numeric" type="number" min="40" max="220" value="100" /></label>
+          <button id="bpmUp" type="button" aria-label="Increase BPM">+</button>
+        </div>
+        <label class="toggle-control"><input id="metronome" type="checkbox" /><span></span><em>Click</em></label>
+      </div>
+
+      <div class="transport-right">
+        <label class="compact-control">Swing <input id="swing" type="range" min="0" max="55" value="8" /><strong id="swingValue">8%</strong></label>
+        <span id="status" class="transport-status">Ready when you are</span>
+      </div>
     </section>
 
-    <section class="panel">
-      <div class="section-head">
-        <div><h2>Beat Machine</h2><p>Pick a style or generate a variation, then edit the 16-step pattern.</p></div>
-        <div class="row">
-          <select id="beatStyle">
+    <nav class="view-tabs" aria-label="Workspace views">
+      <button type="button" class="view-tab active" data-view="loops">Loops</button>
+      <button type="button" class="view-tab" data-view="keys">Keys & Chords</button>
+      <button type="button" class="view-tab" data-view="beats">Beats</button>
+    </nav>
+
+    <main class="workspace" data-active-view="loops">
+      <section class="workspace-panel looper-panel" data-panel="loops">
+        <div class="panel-heading">
+          <div>
+            <span class="panel-kicker">SESSION</span>
+            <h2>6-layer looper</h2>
+            <p>Capture guitar, vocals, keys or beats into independent layers.</p>
+          </div>
+          <button id="clearAll" class="ghost-danger" type="button">Clear all</button>
+        </div>
+
+        <div class="input-strip">
+          <div class="input-copy">
+            <span class="input-icon">IN</span>
+            <div><strong>External audio</strong><small id="inputHint">Connect an interface, mic or iPad input when needed.</small></div>
+          </div>
+          <select id="inputDevice" aria-label="Audio input"><option value="">Default iPad input</option></select>
+          <button id="refreshInputs" type="button">Connect input</button>
+          <label class="toggle-control"><input id="monitorInput" type="checkbox" /><span></span><em>Monitor</em></label>
+        </div>
+
+        <div id="tracks" class="tracks" aria-live="polite"></div>
+      </section>
+
+      <section class="workspace-panel instrument-panel" data-panel="keys">
+        <div class="panel-heading instrument-heading">
+          <div>
+            <span class="panel-kicker">INSTRUMENT</span>
+            <h2>Keys & Smart Chords</h2>
+            <p>Multi-touch piano, expressive synths and one-touch harmonic voicings.</p>
+          </div>
+          <div class="instrument-selects">
+            <label>Sound<select id="soundPreset"></select></label>
+            <label>Octave<select id="octave"><option>2</option><option selected>3</option><option>4</option><option>5</option></select></label>
+          </div>
+        </div>
+
+        <div class="chord-toolbar">
+          <div class="chord-context">
+            <label>Key<select id="songKey"></select></label>
+            <label>Chord<select id="chordFlavor">
+              <option value="triad">Triad</option><option value="6">6th</option><option value="7">7th</option>
+              <option value="maj7">Maj7</option><option value="m7">m7</option><option value="9">9th</option>
+              <option value="maj9">Maj9</option><option value="m9">m9</option><option value="11">11th</option>
+              <option value="13">13th</option><option value="sus2">Sus2</option><option value="sus4">Sus4</option>
+            </select></label>
+            <label>Voicing<select id="voicing"><option value="close">Close</option><option value="open">Open</option><option value="wide">Wide</option></select></label>
+          </div>
+          <div class="expression-controls">
+            <label>Sustain <input id="sustain" type="range" min="0.1" max="2.5" step="0.05" value="0.7" /></label>
+            <label>Tone <input id="tone" type="range" min="800" max="12000" step="100" value="7000" /></label>
+            <label>Space <input id="reverb" type="range" min="0" max="0.65" step="0.01" value="0.18" /></label>
+          </div>
+        </div>
+
+        <div id="chords" class="chords" aria-label="Smart chord pads"></div>
+
+        <div class="keyboard-shell">
+          <div class="keyboard-topline">
+            <span><strong>Performance keyboard</strong><small>Slide between notes • multi-touch supported</small></span>
+            <span id="polyphonyBadge" class="mini-pill">0 voices</span>
+          </div>
+          <div id="keyboard" class="keyboard" aria-label="Playable piano keyboard"></div>
+        </div>
+      </section>
+
+      <section class="workspace-panel beat-panel" data-panel="beats">
+        <div class="panel-heading">
+          <div>
+            <span class="panel-kicker">GROOVE</span>
+            <h2>Beat machine</h2>
+            <p>Start from a musical style, generate a variation, then edit every step.</p>
+          </div>
+          <button id="beatToggle" class="beat-play" type="button">▶ Preview</button>
+        </div>
+
+        <div class="beat-controls">
+          <label>Style<select id="beatStyle">
             <option>Worship</option><option>Pop</option><option>Rock</option><option>Funk</option>
             <option>House</option><option>Trap</option><option>Reggaeton</option><option>Lo-Fi</option>
-          </select>
-          <button id="generateBeat" class="primary">Generate Beat</button>
-          <button id="beatToggle">▶ Beats</button>
-        </div>
-      </div>
-      <div id="sequencer" class="sequencer"></div>
-    </section>
-
-    <section class="panel instrument-panel">
-      <div class="section-head">
-        <div><h2>Keyboard + Smart Chords</h2><p>Play individual notes or tap a full chord. Keyboard audio can be recorded directly into any layer.</p></div>
-        <div class="row wrap">
-          <label>Sound <select id="soundPreset"></select></label>
-          <label>Octave <select id="octave"><option>2</option><option selected>3</option><option>4</option><option>5</option></select></label>
-          <label>Key <select id="songKey"></select></label>
-          <label>Chord <select id="chordFlavor">
-            <option value="triad">Triad</option><option value="7">7th</option><option value="maj7">Maj7</option>
-            <option value="m7">m7</option><option value="9">9th</option><option value="maj9">Maj9</option>
-            <option value="m9">m9</option><option value="11">11th</option><option value="13">13th</option>
-            <option value="sus2">Sus2</option><option value="sus4">Sus4</option><option value="6">6th</option>
           </select></label>
+          <label>Energy<input id="beatEnergy" type="range" min="1" max="5" value="3" /><strong id="energyValue">3</strong></label>
+          <button id="generateBeat" class="accent-action" type="button">Generate variation</button>
         </div>
-      </div>
-      <div id="chords" class="chords"></div>
-      <div id="keyboard" class="keyboard" aria-label="Playable piano keyboard"></div>
-      <div class="row fx-row">
-        <label>Sustain <input id="sustain" type="range" min="0.05" max="3" step="0.05" value="0.65" /></label>
-        <label>Tone <input id="tone" type="range" min="500" max="12000" step="100" value="6500" /></label>
-        <label>Reverb <input id="reverb" type="range" min="0" max="0.75" step="0.05" value="0.2" /></label>
-      </div>
-    </section>
-  </main>
 
-  <footer>Tip: on iPad, open in Safari and use Add to Home Screen for an app-like full-screen experience.</footer>
+        <div class="sequencer-shell">
+          <div class="beat-counts" aria-hidden="true"><span>1</span><span>2</span><span>3</span><span>4</span></div>
+          <div id="sequencer" class="sequencer"></div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="mobile-bottom-nav" aria-label="Mobile workspace navigation">
+      <button type="button" class="mobile-nav active" data-view="loops"><span>●</span>Loops</button>
+      <button type="button" class="mobile-nav" data-view="keys"><span>⌨</span>Keys</button>
+      <button type="button" class="mobile-nav" data-view="beats"><span>▦</span>Beats</button>
+    </footer>
+  </div>
   <script src="app.js"></script>
 </body>
 </html>
