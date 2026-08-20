@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no" />
+  <meta name="theme-color" content="#101114" />
+  <title>Music & Beats Looper</title>
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" href="icon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <h1>Music & Beats</h1>
+      <p>6-layer live looper</p>
+    </div>
+    <div class="transport">
+      <button id="audioBtn" class="primary">Enable Audio</button>
+      <button id="transportBtn">▶ Play</button>
+      <button id="saveBtn">Save</button>
+    </div>
+  </header>
+
+  <main>
+    <section class="panel session-controls">
+      <label>BPM <input id="bpm" type="number" min="40" max="220" value="100" /></label>
+      <label>Swing <input id="swing" type="range" min="0" max="60" value="8" /><span id="swingValue">8%</span></label>
+      <label class="check"><input id="metronome" type="checkbox" /> Metronome</label>
+      <label class="check"><input id="monitorInput" type="checkbox" /> Monitor input</label>
+      <label>Audio input <select id="inputDevice"><option value="">Default iPad input</option></select></label>
+      <button id="refreshInputs">Refresh inputs</button>
+      <span id="status" class="status">Audio is off</span>
+    </section>
+
+    <section class="panel">
+      <div class="section-head">
+        <div><h2>Looper</h2><p>Choose Input, Keyboard or Beats as the source for each layer.</p></div>
+        <button id="clearAll">Clear all</button>
+      </div>
+      <div id="tracks" class="tracks"></div>
+    </section>
+
+    <section class="panel">
+      <div class="section-head">
+        <div><h2>Beat Machine</h2><p>Pick a style or generate a variation, then edit the 16-step pattern.</p></div>
+        <div class="row">
+          <select id="beatStyle">
+            <option>Worship</option><option>Pop</option><option>Rock</option><option>Funk</option>
+            <option>House</option><option>Trap</option><option>Reggaeton</option><option>Lo-Fi</option>
+          </select>
+          <button id="generateBeat" class="primary">Generate Beat</button>
+          <button id="beatToggle">▶ Beats</button>
+        </div>
+      </div>
+      <div id="sequencer" class="sequencer"></div>
+    </section>
+
+    <section class="panel instrument-panel">
+      <div class="section-head">
+        <div><h2>Keyboard + Smart Chords</h2><p>Play individual notes or tap a full chord. Keyboard audio can be recorded directly into any layer.</p></div>
+        <div class="row wrap">
+          <label>Sound <select id="soundPreset"></select></label>
+          <label>Octave <select id="octave"><option>2</option><option selected>3</option><option>4</option><option>5</option></select></label>
+          <label>Key <select id="songKey"></select></label>
+          <label>Chord <select id="chordFlavor">
+            <option value="triad">Triad</option><option value="7">7th</option><option value="maj7">Maj7</option>
+            <option value="m7">m7</option><option value="9">9th</option><option value="maj9">Maj9</option>
+            <option value="m9">m9</option><option value="11">11th</option><option value="13">13th</option>
+            <option value="sus2">Sus2</option><option value="sus4">Sus4</option><option value="6">6th</option>
+          </select></label>
+        </div>
+      </div>
+      <div id="chords" class="chords"></div>
+      <div id="keyboard" class="keyboard" aria-label="Playable piano keyboard"></div>
+      <div class="row fx-row">
+        <label>Sustain <input id="sustain" type="range" min="0.05" max="3" step="0.05" value="0.65" /></label>
+        <label>Tone <input id="tone" type="range" min="500" max="12000" step="100" value="6500" /></label>
+        <label>Reverb <input id="reverb" type="range" min="0" max="0.75" step="0.05" value="0.2" /></label>
+      </div>
+    </section>
+  </main>
+
+  <footer>Tip: on iPad, open in Safari and use Add to Home Screen for an app-like full-screen experience.</footer>
+  <script src="app.js"></script>
+</body>
+</html>
