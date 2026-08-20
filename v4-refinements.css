@@ -1,0 +1,89 @@
+/* V4 refinement layer: touch stability, expression controls, input gain and record ergonomics. */
+html,body,.app-shell,.screen{touch-action:manipulation;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+button,.mode-card,.source-card,.instrument-tab,.choice-pills button,.rail-layer,.ghost-btn,.accent-btn,.primary-wide{touch-action:manipulation;-webkit-user-select:none;user-select:none}
+input,select,textarea{touch-action:manipulation;-webkit-user-select:text;user-select:text}
+.keyboard,.piano-key{touch-action:none!important;-webkit-user-select:none!important;user-select:none!important;-webkit-touch-callout:none!important}
+.step,.sequencer{touch-action:manipulation;-webkit-user-select:none;user-select:none}
+
+/* Make the app feel more like an instrument than a webpage. */
+.panel,.current-layer-panel,.layer-rail,.setup-card,.transport-card{border-color:rgba(255,255,255,.105);box-shadow:0 22px 70px rgba(0,0,0,.34),inset 0 1px rgba(255,255,255,.025)}
+.source-card{transition:transform .16s ease,border-color .16s ease,background .16s ease,box-shadow .16s ease}
+.source-card.active{box-shadow:0 0 0 1px rgba(139,124,255,.18),0 14px 34px rgba(0,0,0,.24)}
+.piano-key{transition:background .05s linear,color .05s linear}
+
+/* Performance expression strip. */
+.v4-expression{display:grid;grid-template-columns:repeat(4,minmax(120px,1fr));gap:10px;padding:0 18px 14px}
+.v4-expression.compact{padding:12px 0 0;grid-template-columns:repeat(4,minmax(100px,1fr))}
+.v4-expression label{display:grid;grid-template-columns:1fr auto;gap:6px;align-items:center;padding:10px 11px;border:1px solid rgba(255,255,255,.075);border-radius:13px;background:rgba(255,255,255,.025);font-size:10px;color:var(--muted)}
+.v4-expression label span{font-weight:700;color:#dfe2ea}
+.v4-expression output{font-size:9px;color:#aaa3f5;min-width:34px;text-align:right}
+.v4-expression input[type=range]{grid-column:1/-1;width:100%;min-width:0}
+
+/* Input gain / meter. */
+.v4-input-gain{display:grid;grid-template-columns:minmax(140px,1fr) minmax(130px,1fr) auto;gap:10px;align-items:center;width:100%;padding:10px 0 0;border-top:1px solid rgba(255,255,255,.065);margin-top:10px}
+.v4-input-gain .gain-control{display:grid;grid-template-columns:1fr auto;gap:5px;font-size:10px;color:var(--muted)}
+.v4-input-gain .gain-control output{color:#d8d3ff;font-weight:800}
+.v4-input-gain .gain-control input{grid-column:1/-1;width:100%}
+.v4-meter-wrap{display:grid;gap:6px;font-size:9px;color:var(--muted)}
+.v4-meter{height:9px;border-radius:999px;background:#222630;overflow:hidden;border:1px solid rgba(255,255,255,.055)}
+.v4-meter>i{display:block;height:100%;width:0;background:linear-gradient(90deg,#58d59a 0%,#f5b85c 78%,#ff646e 100%);transition:width .06s linear}
+.v4-auto-level{display:flex;align-items:center;gap:7px;font-size:10px;color:var(--muted);white-space:nowrap}
+.v4-auto-level input{accent-color:var(--accent)}
+
+/* Record mode: one dominant, thumb-friendly action. */
+.record-console{position:sticky;bottom:calc(10px + var(--safe-b));z-index:24;display:grid!important;grid-template-columns:minmax(120px,1fr) auto minmax(120px,1fr)!important;align-items:center;gap:16px!important;padding:14px 16px!important;margin:18px 0 12px!important;border:1px solid rgba(255,255,255,.11)!important;border-radius:22px!important;background:rgba(12,14,18,.90)!important;backdrop-filter:blur(24px) saturate(135%);-webkit-backdrop-filter:blur(24px) saturate(135%);box-shadow:0 20px 55px rgba(0,0,0,.4)!important}
+.count-display{text-align:left}
+.big-record{position:relative;width:92px!important;height:92px!important;min-width:92px!important;min-height:92px!important;border-radius:50%!important;padding:0!important;display:grid!important;place-items:center!important;background:radial-gradient(circle at 35% 30%,#ff98ad,#ee4d68 58%,#a61e3c)!important;border:5px solid rgba(255,255,255,.9)!important;box-shadow:0 0 0 7px rgba(244,126,172,.12),0 18px 38px rgba(0,0,0,.38)!important;color:white!important}
+.big-record span{display:block!important;width:25px!important;height:25px!important;border-radius:50%!important;background:#fff!important;box-shadow:none!important}
+.big-record strong{position:absolute;top:calc(100% + 9px);left:50%;transform:translateX(-50%);white-space:nowrap;font-size:10px;color:#f1f2f6;letter-spacing:.01em}
+.big-record.counting{background:radial-gradient(circle at 35% 30%,#c9c2ff,#8b7cff 62%,#5544bc)!important}
+.big-record.recording{background:radial-gradient(circle at 35% 30%,#ff7a86,#d51f3e 62%,#851228)!important;animation:v4recordPulse 1s ease-in-out infinite}
+.big-record.recording span{border-radius:5px!important;width:24px!important;height:24px!important}
+@keyframes v4recordPulse{50%{box-shadow:0 0 0 12px rgba(255,77,100,.06),0 18px 38px rgba(0,0,0,.38)}}
+.record-actions{display:flex!important;justify-content:flex-end;gap:8px!important}
+.record-actions button{min-width:86px}
+.layer-navigation{margin-top:8px!important;padding-bottom:8px}
+
+/* Input tool polish. */
+.input-connect-box{display:grid!important;grid-template-columns:minmax(180px,1fr) minmax(160px,220px) auto auto!important;gap:10px!important;align-items:center!important}
+.input-connect-box>div:first-child strong,.input-connect-box>div:first-child small{display:block}
+.input-connect-box>div:first-child small{margin-top:4px}
+
+@media(max-width:900px){
+  .v4-expression{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .v4-expression.compact{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .record-console{grid-template-columns:1fr 84px 1fr!important;gap:10px!important;padding:12px!important}
+  .big-record{width:82px!important;height:82px!important;min-width:82px!important;min-height:82px!important}
+  .record-actions{flex-direction:column!important}
+  .record-actions button{min-width:0!important;width:100%;font-size:10px}
+  .input-connect-box{grid-template-columns:1fr 1fr!important}
+  .v4-input-gain{grid-template-columns:1fr 1fr}
+  .v4-auto-level{grid-column:1/-1}
+}
+
+@media(max-width:600px){
+  input[type=number],select{font-size:16px!important} /* avoids iOS focus zoom */
+  .app-shell{padding-inline:10px!important}
+  .topbar{height:56px!important}
+  .mode-header{padding-top:16px!important}
+  .transport-card{top:calc(4px + var(--safe-t));padding:8px!important;gap:7px!important}
+  .record-stage{gap:8px!important}
+  .current-layer-panel{border-radius:18px!important}
+  .record-console{bottom:calc(6px + var(--safe-b));grid-template-columns:minmax(86px,1fr) 76px minmax(78px,1fr)!important;border-radius:18px!important;margin-inline:-2px!important}
+  .big-record{width:72px!important;height:72px!important;min-width:72px!important;min-height:72px!important;border-width:4px!important}
+  .big-record span{width:21px!important;height:21px!important}
+  .big-record strong{font-size:9px;top:calc(100% + 7px)}
+  .count-display #recordCount{font-size:22px!important}
+  .count-display small{display:none!important}
+  .record-actions button{min-height:38px!important;padding:0 7px!important}
+  .v4-expression{padding-inline:12px;gap:7px}
+  .v4-expression label{padding:8px}
+  .v4-input-gain{grid-template-columns:1fr}
+  .v4-auto-level{grid-column:auto}
+  .input-connect-box{grid-template-columns:1fr!important}
+}
+
+@media(orientation:landscape) and (max-height:560px){
+  .record-console{position:relative;bottom:auto}
+  .keyboard{height:188px!important}
+}
