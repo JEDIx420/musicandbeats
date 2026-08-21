@@ -41,6 +41,18 @@ v17DriveCurve=function(amount=0){
   const k=1+amount*55,norm=Math.tanh(k);for(let i=0;i<n;i++){const x=i*2/n-1;c[i]=Math.tanh(x*k)/norm}return c;
 };
 
+/* Touch-safe rotary control: does not depend on hasPointerCapture existing. */
+v17BindValueKnob=function(knob,min,max,step,value,onChange){
+  if(!knob||knob.dataset.bound==='1')return;knob.dataset.bound='1';let val=+value,active=null,startY=0,startVal=val;
+  knob.tabIndex=0;knob.setAttribute('role','slider');knob.setAttribute('aria-valuemin',String(min));knob.setAttribute('aria-valuemax',String(max));v17SetKnobVisual(knob,min,max,val);
+  const set=v=>{val=clamp(Math.round(v/step)*step,min,max);v17SetKnobVisual(knob,min,max,val);onChange(val)};
+  knob.addEventListener('pointerdown',e=>{e.preventDefault();active=e.pointerId;startY=e.clientY;startVal=val;try{knob.setPointerCapture?.(e.pointerId)}catch{}knob.classList.add('turning')});
+  knob.addEventListener('pointermove',e=>{if(active!==e.pointerId)return;e.preventDefault();set(startVal+(startY-e.clientY)/120*(max-min))});
+  const end=e=>{if(active!==e.pointerId)return;active=null;try{knob.releasePointerCapture?.(e.pointerId)}catch{}knob.classList.remove('turning')};
+  knob.addEventListener('pointerup',end);knob.addEventListener('pointercancel',end);knob.addEventListener('lostpointercapture',end);
+  knob.addEventListener('keydown',e=>{if(!['ArrowUp','ArrowRight','ArrowDown','ArrowLeft'].includes(e.key))return;e.preventDefault();set(val+(['ArrowUp','ArrowRight'].includes(e.key)?step:-step))});
+};
+
 /* Initialise the rack before precise recording connects its capture node, then
    capture the post-FX mix so pedal/knob movements are printed into Keys/Bass takes. */
 function v17EnsureCaptureOut(){
@@ -52,12 +64,17 @@ ensureAudio=async function(){const out=await v17BaseEnsureAudio();v17EnsureSynth
 const v17BaseGetLayerBus=getLayerBus;
 getLayerBus=function(layer){if(layer?.source==='chords'||layer?.source==='bass'){v17EnsureSynthRack();return v17EnsureCaptureOut()}return v17BaseGetLayerBus(layer)};
 
+function v17FlushFxTails(){
+  if(!v17SynthRack||!ctx)return;const n=v17SynthRack,t=ctx.currentTime;try{n.feedback.gain.cancelScheduledValues(t);n.feedback.gain.setValueAtTime(0,t);n.delayWet.gain.cancelScheduledValues(t);n.delayWet.gain.setValueAtTime(0,t);n.reverbWet.gain.cancelScheduledValues(t);n.reverbWet.gain.setValueAtTime(0,t);n.reverb.buffer=createImpulse();setTimeout(()=>{if(ctx)v17ApplyFx()},28)}catch{}
+}
 /* Explicit Stop Session also kills V17 delay/reverb tails. */
 if(typeof v13HardStopLivePerformance==='function'){
   const v17BaseHardStop=v13HardStopLivePerformance;
-  v13HardStopLivePerformance=function(){
-    const out=v17BaseHardStop.apply(this,arguments);if(v17SynthRack&&ctx){const n=v17SynthRack,t=ctx.currentTime;try{n.feedback.gain.cancelScheduledValues(t);n.feedback.gain.setValueAtTime(0,t);n.delayWet.gain.cancelScheduledValues(t);n.delayWet.gain.setValueAtTime(0,t);n.reverbWet.gain.cancelScheduledValues(t);n.reverbWet.gain.setValueAtTime(0,t);n.reverb.buffer=createImpulse();setTimeout(()=>{if(ctx)v17ApplyFx()},28)}catch{}}return out;
-  };
+  v13HardStopLivePerformance=function(){const out=v17BaseHardStop.apply(this,arguments);v17FlushFxTails();return out};
+}
+if(typeof panic==='function'){
+  const v17BasePanic=panic;
+  panic=function(){const out=v17BasePanic.apply(this,arguments);v17FlushFxTails();return out};
 }
 
 /* V17 replaces the older V15 record bass arp module instead of stacking two modules. */
@@ -75,9 +92,22 @@ v17BindRecordArp=function(panel,layer,kind){
   panel.querySelector('[data-v17-stop]')?.addEventListener('click',()=>{if(typeof v14ReleaseLatch==='function')v14ReleaseLatch(true)});
 };
 
+/* Refresh the Play rack face when switching Keys ↔ Bass without rebuilding the rest of the instrument. */
+const v17BaseInstallFxRack=v17InstallFxRack;
+v17InstallFxRack=function(){
+  const play=currentScreen==='play',source=play?playInstrument:(session.layers?.length?sessionLayer().source:null);if(!['chords','bass'].includes(source))return;
+  const host=play?$('#playScreen .instrument-panel'):$('#layerSourceTools .tool-box'),kind=source==='bass'?'bass':'keys',state=play?V17_PLAY_FX:v17LayerFx(sessionLayer());if(!host)return;
+  let rack=host.querySelector('[data-v17-rack]');
+  if(rack&&rack.dataset.kind!==kind){const shell=document.createElement('div');shell.innerHTML=v17FxMarkup(state,kind);const fresh=shell.firstElementChild;fresh.dataset.kind=kind;rack.replaceWith(fresh);v17BindFxRack(fresh,state);rack=fresh}
+  if(!rack){v17BaseInstallFxRack();rack=host.querySelector('[data-v17-rack]');if(rack)rack.dataset.kind=kind}else v17BindFxRack(rack,state);
+  if(ctx)v17ApplyFx();
+};
+
 /* Keep Play ARP rocker/latch state in the persistent Play state object. */
 function v17SyncPlayArpButtons(){
-  const p=$('#v6ArpPanel');if(!p||p.dataset.v17Sync==='1')return;p.dataset.v17Sync='1';
+  const p=$('#v6ArpPanel');if(!p)return;
+  const range=p.querySelector('[data-arp="octaves"]');if(range&&!range.querySelector('option[value="4"]'))range.insertAdjacentHTML('beforeend','<option value="4">4</option>');
+  if(p.dataset.v17Sync==='1')return;p.dataset.v17Sync='1';
   p.querySelector('.v6-arp-power')?.addEventListener('click',()=>setTimeout(()=>v17CaptureArpState(V17_PLAY_ARP),0));
   p.querySelector('[data-arp-toggle="latch"]')?.addEventListener('click',()=>setTimeout(()=>v17CaptureArpState(V17_PLAY_ARP),0));
 }
