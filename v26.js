@@ -129,7 +129,12 @@ function v26CollectAddedRacks(mutations){
   }
   return racks;
 }
+const V26_RATE_SELECTOR='[data-arp="rate"],[data-basic="rate"],[data-v18-arp="rate"],[data-v15-arp="rate"]';
+function v26MutationHasRateUI(mutations){
+  return mutations.some(m=>[...m.addedNodes].some(n=>n.nodeType===1&&(n.matches?.(V26_RATE_SELECTOR)||n.querySelector?.(V26_RATE_SELECTOR))));
+}
 const v26RackObserver=new MutationObserver(mutations=>{
+  if(v26MutationHasRateUI(mutations))v19EnsureRateOptions?.();
   const racks=v26CollectAddedRacks(mutations);if(!racks.length)return;
   racks.filter(r=>r.closest('#layerSourceTools')).forEach(r=>v19EnhanceRack?.(r));
   if(racks.some(r=>r.closest('#playScreen'))&&!v26RackMutationQueued){
