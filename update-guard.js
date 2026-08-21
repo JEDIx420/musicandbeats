@@ -1,6 +1,6 @@
-/* Music & Beats V26 — deployment/update recovery guard. */
+/* Music & Beats V27 — deployment/update recovery guard. */
 (()=>{
-  const BUILD='v26',reloadKey=`musicandbeats:reload:${BUILD}`;
+  const BUILD='v27',reloadKey=`musicandbeats:reload:${BUILD}`;
   window.MUSIC_AND_BEATS_BUILD=BUILD;
   async function remoteBuild(){
     try{
