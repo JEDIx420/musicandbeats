@@ -35,27 +35,26 @@ function v14LatchPad(pad){
   c.pad.classList.add('v14-latched');c.pad.setAttribute('aria-pressed','true');v14PaintHints();return true;
 }
 function v14PaintHints(){
+  const state=v14Latch?'held':'idle';
   document.querySelectorAll('.v6-smart-toolbar small').forEach(el=>{
+    if(el.dataset.v14Hint===state)return;
+    el.dataset.v14Hint=state;
     el.innerHTML=v14Latch?'<span class="v14-live-dot"></span> Chord held · double-tap it again to release':'Tap / 1–7 · <b>double-tap or double-press to hold</b>';
   });
 }
 function v14PadKey(pad){const host=v14SmartHostForPad(pad);return host?`${host.id}:${pad.dataset.index}`:''}
 
-/* Capture the second pointer-down before the original Smart Keys handler sees it. */
 document.addEventListener('pointerdown',e=>{
   const pad=e.target?.closest?.('.chord-pad');if(!pad||!v14SmartHostForPad(pad)||pad.closest('.v6-smart-edit-grid'))return;
   const now=performance.now(),key=v14PadKey(pad),prev=v14LastPadTap;
   const close=prev&&prev.key===key&&now-prev.time<=V14_DOUBLE_MS&&Math.hypot(e.clientX-prev.x,e.clientY-prev.y)<56;
-  if(close){
-    v14LastPadTap=null;v14SuppressedPointers.add(e.pointerId);e.preventDefault();e.stopImmediatePropagation();v14LatchPad(pad);return;
-  }
+  if(close){v14LastPadTap=null;v14SuppressedPointers.add(e.pointerId);e.preventDefault();e.stopImmediatePropagation();v14LatchPad(pad);return}
   v14LastPadTap={key,time:now,x:e.clientX,y:e.clientY};
 },true);
 ['pointerup','pointercancel','lostpointercapture'].forEach(type=>document.addEventListener(type,e=>{
   if(!v14SuppressedPointers.has(e.pointerId))return;v14SuppressedPointers.delete(e.pointerId);e.preventDefault();e.stopImmediatePropagation();
 },true));
 
-/* Number-row mapping: the second distinct press inside the window toggles the same latch. */
 const v14BaseTriggerNumberChord=v5TriggerNumberChord;
 v5TriggerNumberChord=function(index){
   const c=v5CurrentChordContext(),pad=c?.host?.querySelectorAll('.chord-pad')?.[index],now=performance.now();
@@ -67,11 +66,9 @@ v5TriggerNumberChord=function(index){
   return v14BaseTriggerNumberChord(index);
 };
 
-/* If a render/key change replaces the held pad, release its audio instead of orphaning it. */
 const v14Observer=new MutationObserver(()=>{if(v14Latch?.pad&&!v14Latch.pad.isConnected)v14ReleaseLatch(true);v14PaintHints()});
 ['playChords','recordChords','layerSourceTools'].forEach(id=>{const el=document.getElementById(id);if(el)v14Observer.observe(el,{childList:true,subtree:true})});
 
-/* Transport/panic/navigation must never leave a latched voice behind. */
 if(typeof stopSession==='function'){
   const v14BaseStopSession=stopSession;stopSession=function(){v14ReleaseLatch(true);return v14BaseStopSession.apply(this,arguments)};
 }
