@@ -58,4 +58,9 @@ function v8Init(){
   /* Timeline is installed by V6; a second retry covers slow/stale script activation without duplicating controls. */
   setTimeout(v8InstallRecordToolbar,260);
 }
+function v8LoadV9(){
+  if(!document.querySelector('link[data-v9]')){const link=document.createElement('link');link.rel='stylesheet';link.href='v9.css';link.dataset.v9='1';document.head.appendChild(link)}
+  if(!document.querySelector('script[data-v9]')){const script=document.createElement('script');script.src='v9.js';script.dataset.v9='1';document.body.appendChild(script)}
+}
 v8Init();
+v8LoadV9();

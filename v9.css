@@ -1,0 +1,52 @@
+/* Music & Beats V9 — iPad touch hardening + collapsible expression controls */
+
+/* Treat performance surfaces like instruments, not selectable web text. */
+.chord-pad,.v6-smart-toolbar,.v6-smartkeys,.instrument-tabs,.keyboard-frame,.source-chooser,.v6-arp-panel,.v6-guitar-rig,.expression-strip,.v9-expression-shell{
+  -webkit-user-select:none;
+  user-select:none;
+  -webkit-touch-callout:none;
+}
+.chord-pad,.instrument-tab,.v6-smart-toolbar button,.source-card,.v6-arp-panel button,.v6-pedal button,.v9-expression-toggle{
+  touch-action:manipulation;
+  -webkit-tap-highlight-color:transparent;
+}
+.keyboard,.piano-key{touch-action:none!important;-webkit-user-select:none!important;user-select:none!important;-webkit-touch-callout:none!important}
+.v6-smart-editor select,.v6-smart-editor input,.expression-strip input,.v6-guitar-rig input,.v6-guitar-rig select,.v6-arp-panel input,.v6-arp-panel select{
+  -webkit-user-select:auto;
+  user-select:auto;
+  -webkit-touch-callout:default;
+}
+
+/* Collapsible performance controls */
+.v9-expression-shell{margin:0 18px 14px;border:1px solid rgba(255,255,255,.075);border-radius:16px;background:linear-gradient(180deg,rgba(255,255,255,.026),rgba(255,255,255,.014));overflow:hidden}
+.v9-expression-toggle{width:100%;min-height:52px;border:0;border-radius:0;background:transparent;display:flex;align-items:center;gap:12px;padding:8px 12px;text-align:left}
+.v9-expression-toggle:active{transform:none;background:rgba(255,255,255,.025)}
+.v9-expression-icon{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;background:rgba(139,124,255,.13);border:1px solid rgba(139,124,255,.2);color:#c8c1ff;font-size:15px;flex:none}
+.v9-expression-copy{min-width:0;display:flex;flex-direction:column;gap:2px}.v9-expression-copy strong{font-size:11px;letter-spacing:.01em}.v9-expression-copy small{font-size:8px;color:#7f8796;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:54vw}
+.v9-expression-action{margin-left:auto;display:flex;align-items:center;gap:7px;color:#a9b0bd;font-size:9px;font-weight:800;white-space:nowrap}.v9-expression-chevron{font-size:13px;transition:transform .18s ease;color:#bdb6ff}
+.v9-expression-shell.collapsed .v9-expression-chevron{transform:rotate(-90deg)}
+.v9-expression-shell>.expression-strip{margin:0!important;border:0!important;border-top:1px solid rgba(255,255,255,.06)!important;border-radius:0!important;background:rgba(0,0,0,.09)!important}
+.v9-expression-shell.collapsed>.expression-strip{display:none!important}
+.layer-source-tools .v9-expression-shell{margin:12px 0 0}.v6-guitar-mode .v9-expression-shell{display:none!important}
+
+/* Coarse-pointer / iPad tuning */
+@media (hover:none) and (pointer:coarse){
+  .chord-pad,.instrument-tab,.source-card,.v6-smart-toolbar button{min-height:48px}
+  .chord-pad strong{pointer-events:none}.chord-pad small,.chord-pad kbd{pointer-events:none}
+  .v6-smartkeys{gap:10px!important}
+  .v9-expression-shell{margin-bottom:10px}
+  .v9-expression-toggle{min-height:56px;padding:9px 13px}
+  .v9-expression-copy strong{font-size:12px}.v9-expression-copy small{font-size:9px}
+  #playScreen .transport-card{backdrop-filter:blur(30px);-webkit-backdrop-filter:blur(30px)}
+}
+
+@media(max-width:900px){
+  .v9-expression-shell{margin:0 14px 12px}
+  .layer-source-tools .v9-expression-shell{margin:10px 0 0}
+}
+
+@media(max-width:620px){
+  .v9-expression-shell{margin-inline:10px}
+  .v9-expression-copy small{max-width:48vw}
+  .v9-expression-action .v9-expression-word{display:none}
+}
