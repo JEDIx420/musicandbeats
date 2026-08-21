@@ -53,10 +53,9 @@ function v9LoadPatchScript(name){
   });
 }
 async function v9LoadPatchChain(){
-  /* CSS can arrive in parallel, but behaviour patches execute strictly in order.
-     This avoids device/cache-dependent races between patches that extend each other. */
-  ['v10','v12','v14','v15','v16'].forEach(v9EnsurePatchCss);
-  for(const name of ['v10','v12','v13','v14','v15','v16'])await v9LoadPatchScript(name);
+  /* CSS can arrive in parallel, but behaviour patches execute strictly in order. */
+  ['v10','v12','v14','v15','v16','v17'].forEach(v9EnsurePatchCss);
+  for(const name of ['v10','v12','v13','v14','v15','v16','v17','v17-fixes'])await v9LoadPatchScript(name);
 }
 function v9Init(){
   v9InstallTouchGuards();v9ScanExpressionControls();
