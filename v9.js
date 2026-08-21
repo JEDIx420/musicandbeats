@@ -34,6 +34,9 @@ function v9EnhanceExpression(strip){
 }
 function v9ScanExpressionControls(){document.querySelectorAll('.expression-strip').forEach(v9EnhanceExpression)}
 function v9ScheduleScan(){if(v9ScanQueued)return;v9ScanQueued=true;requestAnimationFrame(()=>{v9ScanQueued=false;v9ScanExpressionControls()})}
+function v9ExpressionMutationNeedsScan(mutations){
+  return mutations.some(m=>[...m.addedNodes].some(n=>n.nodeType===1&&(n.matches?.('.expression-strip,.v9-expression-shell')||n.querySelector?.('.expression-strip'))));
+}
 
 function v9InstallTouchGuards(){
   document.addEventListener('selectstart',e=>{if(v9IsPerformanceTarget(e.target)&&!v9IsEditableTarget(e.target))e.preventDefault()},true);
@@ -44,7 +47,7 @@ function v9InstallTouchGuards(){
 
 function v9EnsurePatchCss(name){
   const marker=`data-${name}`;
-  if(document.querySelector(`link[${marker}]`))return;
+  if(document.querySelector(`link[${marker}],link[href="${name}.css"]`))return;
   const link=document.createElement('link');link.rel='stylesheet';link.href=`${name}.css`;link.setAttribute(marker,'1');document.head.appendChild(link);
 }
 function v9LoadPatchScript(name){
@@ -55,14 +58,19 @@ function v9LoadPatchScript(name){
   });
 }
 async function v9LoadPatchChain(){
-  /* CSS can arrive in parallel, but behaviour patches execute strictly in order. */
-  ['v10','v12','v14','v15','v16','v17','v18','v19','v22'].forEach(v9EnsurePatchCss);
-  for(const name of ['v10','v12','v13','v14','v15','v16','v17','v17-fixes','v17-post','v18','v18-fixes','v19','v22'])await v9LoadPatchScript(name);
+  /* CSS is preloaded by index.html on current builds; this remains a safe fallback. */
+  ['v10','v12','v14','v15','v16','v17','v18','v19','v22','v23'].forEach(v9EnsurePatchCss);
+  for(const name of ['v10','v12','v13','v14','v15','v16','v17','v17-fixes','v17-post','v18','v18-fixes','v19','v22','v23'])await v9LoadPatchScript(name);
+}
+function v9MarkReady(){
+  try{clearTimeout(window.__MB_BOOT_FAILSAFE)}catch{}
+  document.documentElement.classList.remove('mb-booting');document.documentElement.classList.add('mb-ready');
+  window.dispatchEvent(new CustomEvent('musicandbeats:ready'));
 }
 function v9Init(){
   v9InstallTouchGuards();v9ScanExpressionControls();
-  const observer=new MutationObserver(v9ScheduleScan);observer.observe(document.body,{childList:true,subtree:true});
+  const observer=new MutationObserver(m=>{if(v9ExpressionMutationNeedsScan(m))v9ScheduleScan()});observer.observe(document.body,{childList:true,subtree:true});
   window.addEventListener('pageshow',v9ScheduleScan);
-  v9LoadPatchChain().catch(e=>console.error('Music & Beats patch chain failed',e));
+  v9LoadPatchChain().catch(e=>console.error('Music & Beats patch chain failed',e)).finally(v9MarkReady);
 }
 v9Init();
