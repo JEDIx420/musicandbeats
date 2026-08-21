@@ -111,8 +111,4 @@ async function v6RestoreExtras(){
 v6InstallPersistentSave();
 setTimeout(v6RestoreExtras,450);
 
-/* V7 is kept as a separate layer so the V6 guitar/timeline engine remains easy to roll back. */
-(()=>{
-  if(!document.querySelector('link[href="v7.css"]')){const l=document.createElement('link');l.rel='stylesheet';l.href='v7.css';document.head.appendChild(l)}
-  if(!document.querySelector('script[src="v7.js"]')){const s=document.createElement('script');s.src='v7.js';document.body.appendChild(s)}
-})();
+/* V7 is loaded once, statically, by index.html after this integration layer. */
