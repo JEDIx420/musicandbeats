@@ -56,8 +56,8 @@ function v9LoadPatchScript(name){
 }
 async function v9LoadPatchChain(){
   /* CSS can arrive in parallel, but behaviour patches execute strictly in order. */
-  ['v10','v12','v14','v15','v16','v17','v18','v19'].forEach(v9EnsurePatchCss);
-  for(const name of ['v10','v12','v13','v14','v15','v16','v17','v17-fixes','v17-post','v18','v18-fixes','v19'])await v9LoadPatchScript(name);
+  ['v10','v12','v14','v15','v16','v17','v18','v19','v22'].forEach(v9EnsurePatchCss);
+  for(const name of ['v10','v12','v13','v14','v15','v16','v17','v17-fixes','v17-post','v18','v18-fixes','v19','v22'])await v9LoadPatchScript(name);
 }
 function v9Init(){
   v9InstallTouchGuards();v9ScanExpressionControls();
