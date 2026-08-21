@@ -1,0 +1,6 @@
+/* Music & Beats V14 — Smart Keys latch feedback */
+.chord-pad.v14-latched{position:relative;background:linear-gradient(145deg,rgba(139,124,255,.32),rgba(55,48,110,.34))!important;border-color:#a99dff!important;box-shadow:0 0 0 1px rgba(169,157,255,.18),0 0 28px rgba(125,105,255,.24),inset 0 1px rgba(255,255,255,.08)}
+.chord-pad.v14-latched:after{content:'HELD';position:absolute;right:8px;bottom:7px;padding:3px 6px;border-radius:999px;background:#8b7cff;color:#fff;font-size:7px;font-weight:900;letter-spacing:.1em;box-shadow:0 4px 14px rgba(0,0,0,.3)}
+.chord-pad.v14-latched strong{color:#fff}.chord-pad.v14-latched .key-map-badge{border-color:rgba(255,255,255,.24);background:rgba(255,255,255,.12);color:#fff}
+.v6-smart-toolbar small b{color:#c9c2ff;font-weight:800}.v14-live-dot{display:inline-block;width:7px;height:7px;margin-right:5px;border-radius:50%;background:#8b7cff;box-shadow:0 0 0 5px rgba(139,124,255,.11),0 0 12px rgba(139,124,255,.65);vertical-align:1px}
+@media(hover:none) and (pointer:coarse){.chord-pad.v14-latched:after{font-size:8px;padding:4px 7px}.chord-pad.v14-latched{box-shadow:0 0 0 1px rgba(169,157,255,.22),0 0 34px rgba(125,105,255,.28)}}
