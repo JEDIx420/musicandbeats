@@ -51,9 +51,12 @@ function v9LoadV12(){
   if(!document.querySelector('link[data-v12]')){const link=document.createElement('link');link.rel='stylesheet';link.href='v12.css';link.dataset.v12='1';document.head.appendChild(link)}
   if(!document.querySelector('script[data-v12]')){const script=document.createElement('script');script.src='v12.js';script.dataset.v12='1';document.body.appendChild(script)}
 }
+function v9LoadV13(){
+  if(!document.querySelector('script[data-v13]')){const script=document.createElement('script');script.src='v13.js';script.dataset.v13='1';document.body.appendChild(script)}
+}
 function v9Init(){
   v9InstallTouchGuards();v9ScanExpressionControls();
   const observer=new MutationObserver(v9ScheduleScan);observer.observe(document.body,{childList:true,subtree:true});
-  window.addEventListener('pageshow',v9ScheduleScan);v9LoadV10();v9LoadV12();
+  window.addEventListener('pageshow',v9ScheduleScan);v9LoadV10();v9LoadV12();v9LoadV13();
 }
 v9Init();
