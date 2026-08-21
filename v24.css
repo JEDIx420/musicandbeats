@@ -1,0 +1,64 @@
+/* Music & Beats V24 — full-width collapsible Play workstation racks. */
+#playScreen .play-workspace.v24-play-rack-stack{display:flex!important;flex-direction:column!important;align-items:stretch!important;gap:12px!important;margin-top:14px!important}
+#playScreen .v24-play-rack-stack>.panel,#playScreen .v24-play-rack-stack>#v6ArpPanel{width:100%!important;max-width:none!important;min-width:0!important;grid-column:auto!important;align-self:stretch!important}
+#playScreen .v24-play-module{overflow:hidden!important;border:1px solid #303640!important;border-radius:18px!important;background:linear-gradient(180deg,#171a20,#0b0d11)!important;box-shadow:inset 0 1px rgba(255,255,255,.05),0 11px 30px rgba(0,0,0,.19)!important}
+#playScreen .v24-module-head{min-height:70px!important;padding:12px 15px!important;border-bottom:1px solid rgba(255,255,255,.055)!important;background:linear-gradient(180deg,rgba(31,34,41,.96),rgba(17,19,24,.98))!important;display:flex!important;align-items:center!important;justify-content:space-between!important;gap:14px!important}
+#playScreen .v24-module-meta{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1 1 auto}
+#playScreen .v24-module-meta>span{font-size:7px;font-weight:950;letter-spacing:.17em;color:#9189d9;text-transform:uppercase}
+#playScreen .v24-module-meta>strong{font-size:17px;line-height:1.05;letter-spacing:-.025em;color:#f4f5f8}
+#playScreen .v24-module-meta>small{margin-top:2px;max-width:60ch;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#7f8793;font-size:9px}
+#playScreen .v24-module-actions{display:flex!important;align-items:center!important;justify-content:flex-end!important;gap:8px!important;flex:0 0 auto!important;min-width:0!important}
+#playScreen .v24-module-actions>.select-row{margin:0!important;padding:0!important}
+#playScreen .v24-module-toggle{height:40px!important;min-height:40px!important;min-width:82px!important;padding:0 11px!important;border:1px solid #3b414b!important;border-radius:8px!important;background:linear-gradient(180deg,#25282f,#111318)!important;display:flex!important;align-items:center!important;justify-content:center!important;gap:8px!important;color:#c3c8d0!important;box-shadow:inset 0 1px rgba(255,255,255,.07),inset 0 -4px 7px rgba(0,0,0,.3)!important;font-size:8px!important;font-weight:950!important;letter-spacing:.12em!important}
+#playScreen .v24-module-toggle i{font-style:normal;color:#818896;transition:transform .16s ease}#playScreen .v24-collapsed .v24-module-toggle i{transform:rotate(-90deg)}
+#playScreen .v24-collapsed>.v24-module-head{border-bottom-color:transparent!important}
+#playScreen .instrument-panel.v24-collapsed>:not(.panel-head),#playScreen .beat-panel.v24-collapsed>:not(.panel-head),#playScreen #v6ArpPanel.v24-collapsed>:not(.panel-head),#playScreen .v24-tone-module.v24-collapsed>:not(.panel-head){display:none!important}
+#playScreen .v24-collapsed .v24-module-head .select-row{display:none!important}
+
+/* Tone & FX is its own rack in Play instead of consuming keyboard space. */
+#playScreen .v24-tone-module .v24-tone-body{padding:12px;display:grid;gap:10px}
+#playScreen .v24-tone-module .v9-expression-shell,#playScreen .v24-tone-module .v19-rack-shell{margin:0!important;width:100%!important}
+#playScreen .v24-tone-module .v19-rack-shell{border-radius:13px!important;overflow:hidden}
+#playScreen .v24-tone-module.v24-empty-module{display:none!important}
+
+/* Instrument is full width and becomes the dedicated play surface. */
+#playScreen .instrument-panel{min-width:0!important}
+#playScreen .instrument-panel .keyboard{height:clamp(220px,28vw,330px)!important}
+#playScreen .instrument-panel .chord-pads{grid-template-columns:repeat(7,minmax(0,1fr))!important}
+
+/* Groove Box becomes a horizontal drawer rather than a side card. */
+#playScreen .beat-panel{align-self:stretch!important}
+#playScreen .beat-panel .v18-groovebox{padding:12px 14px 14px!important}
+#playScreen .beat-panel .sequencer{grid-template-columns:64px repeat(16,minmax(24px,1fr))!important}
+#playScreen .beat-panel .v18-groove-knobs{grid-template-columns:repeat(6,minmax(74px,1fr))!important}
+
+/* Play Arp: full-width scope strip + true 6x2 hardware controls below it. */
+#playScreen #v6ArpPanel.v24-play-arp{display:block!important;position:relative!important;max-width:none!important;width:100%!important}
+#playScreen #v6ArpPanel.v24-play-arp .v6-arp-body{display:block!important;width:100%!important;min-width:0!important;padding:12px 14px 14px!important}
+#playScreen #v6ArpPanel.v24-play-arp .v6-arp-visual{display:block!important;width:100%!important;min-width:0!important;max-width:none!important;margin:0!important;padding:0!important}
+#playScreen #v6ArpPanel.v24-play-arp .v18-arp-wave.v22-wave-host{width:100%!important;height:142px!important;margin:0!important}
+#playScreen #v6ArpPanel.v24-play-arp .v6-arp-controls,#playScreen #v6ArpPanel.v24-play-arp .v22-arp-deck,#playScreen #v6ArpPanel.v24-play-arp .v24-arp-grid{display:grid!important;grid-template-columns:repeat(6,minmax(0,1fr))!important;grid-auto-flow:row!important;gap:9px!important;width:100%!important;max-width:none!important;min-width:0!important;margin:10px 0 0!important;padding:0!important;align-items:stretch!important}
+#playScreen #v6ArpPanel.v24-play-arp .v24-arp-grid>label{grid-column:auto!important;grid-row:auto!important;display:flex!important;min-width:0!important;width:100%!important;max-width:none!important;min-height:94px!important;margin:0!important;padding:8px 6px 7px!important;align-items:center!important;justify-content:flex-start!important}
+#playScreen #v6ArpPanel.v24-play-arp .v24-arp-grid>label.v22-lcd-control select{width:100%!important;min-width:0!important;height:42px!important;min-height:42px!important}
+#playScreen #v6ArpPanel.v24-play-arp .v24-arp-grid .v22-arp-knob{margin:0 auto!important;transform:none!important}
+#playScreen #v6ArpPanel.v24-play-arp .v24-arp-legacy-hidden{display:none!important}
+#playScreen #v6ArpPanel.v24-play-arp .v22-rhythm-slot{left:12px!important;right:12px!important}
+#playScreen #v6ArpPanel.v24-play-arp .v22-rhythm-pattern{max-width:min(520px,94%)!important}
+
+/* Keep legacy V22 grid-position declarations from forcing one skinny column. */
+#playScreen #v6ArpPanel.v24-play-arp .v22-arp-deck>[data-v22-control]{grid-column:auto!important;grid-row:auto!important}
+
+@media(max-width:1050px){
+  #playScreen #v6ArpPanel.v24-play-arp .v6-arp-controls,#playScreen #v6ArpPanel.v24-play-arp .v22-arp-deck,#playScreen #v6ArpPanel.v24-play-arp .v24-arp-grid{grid-template-columns:repeat(3,minmax(0,1fr))!important}
+  #playScreen .beat-panel .v18-groove-knobs{grid-template-columns:repeat(3,minmax(82px,1fr))!important}
+}
+@media(max-width:720px){
+  #playScreen .v24-module-head{min-height:62px!important;padding:10px!important;align-items:flex-start!important}
+  #playScreen .v24-module-actions{gap:5px!important;flex-wrap:wrap!important}
+  #playScreen .v24-module-toggle{min-width:70px!important;height:36px!important;min-height:36px!important}
+  #playScreen .v24-module-meta>small{max-width:42vw}
+  #playScreen #v6ArpPanel.v24-play-arp .v6-arp-controls,#playScreen #v6ArpPanel.v24-play-arp .v22-arp-deck,#playScreen #v6ArpPanel.v24-play-arp .v24-arp-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:7px!important}
+  #playScreen #v6ArpPanel.v24-play-arp .v18-arp-wave.v22-wave-host{height:118px!important}
+  #playScreen .instrument-panel .chord-pads{grid-template-columns:repeat(4,minmax(0,1fr))!important}
+  #playScreen .beat-panel .v18-groove-knobs{grid-template-columns:repeat(2,minmax(82px,1fr))!important}
+}
