@@ -1,5 +1,5 @@
 {
-  "build": "v21",
-  "contains": "bootstrap repair: single V7 load, hyphen-safe patch chain, V18/V19 features",
-  "publishedAt": "2026-08-21T18:03:00Z"
+  "build": "v22",
+  "contains": "audio-reactive ARP scope, two-row hardware controls, V19 rate/rack features, bootstrap repair",
+  "publishedAt": "2026-08-21T18:22:00Z"
 }
