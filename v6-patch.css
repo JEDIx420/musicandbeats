@@ -1,0 +1,4 @@
+/* Small V6 integration polish loaded after v6.css. */
+@keyframes v6playhead{from{transform:translateX(0)}to{transform:translateX(var(--playhead-travel,700px))}}
+#v6TimelineToggle.active{border-color:rgba(139,124,255,.38);background:rgba(124,92,255,.12);color:#e4e0ff}
+@media(max-width:760px){#recordScreen .record-topline{gap:8px;flex-wrap:wrap}#recordScreen .record-topline .session-progress{order:3;flex:1 0 100%}#v6TimelineToggle,#sessionSettingsBtn{min-height:42px}}
