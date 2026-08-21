@@ -1,0 +1,9 @@
+/* Music & Beats V23 — latch clarity + paint containment. */
+.v23-performance-ui .v22-arp-scope{contain:layout paint style}
+.v23-performance-ui .v22-arp-scope canvas{will-change:auto}
+.v23-performance-ui .v22-arp-scope.running canvas{will-change:contents}
+.v23-performance-ui .piano-key.v23-latch-current,.v23-performance-ui .chord-pad.v23-latch-current{position:relative;z-index:2;box-shadow:0 0 0 1px rgba(149,132,255,.55),0 0 24px rgba(129,102,255,.32),inset 0 0 22px rgba(120,94,255,.15)!important}
+.v23-performance-ui .piano-key.v23-latch-current:after{content:'HELD';position:absolute;right:5px;bottom:5px;padding:2px 4px;border-radius:4px;background:rgba(19,14,35,.84);color:#c8bdff;font-size:6px;font-weight:950;letter-spacing:.12em;pointer-events:none}
+.v23-smart-latch{margin-left:2px}
+#layerSourceTools .v6-smart-toolbar .v18-latch-switch{flex:0 0 auto}
+@media(max-width:760px){.v23-performance-ui .piano-key.v23-latch-current:after{display:none}}

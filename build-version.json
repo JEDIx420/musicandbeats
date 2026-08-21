@@ -1,5 +1,5 @@
 {
-  "build": "v22",
-  "contains": "audio-reactive ARP scope, two-row hardware controls, V19 rate/rack features, bootstrap repair",
-  "publishedAt": "2026-08-21T18:22:00Z"
+  "build": "v23",
+  "contains": "record Smart Keys latch, synced latch visuals, idle ARP performance hardening, coherent boot gate",
+  "publishedAt": "2026-08-21T18:35:00Z"
 }
