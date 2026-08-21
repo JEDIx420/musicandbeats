@@ -41,10 +41,27 @@ function v9InstallTouchGuards(){
   document.addEventListener('dragstart',e=>{if(v9IsPerformanceTarget(e.target))e.preventDefault()},true);
   document.addEventListener('pointerdown',e=>{if(!v9IsPerformanceTarget(e.target)||v9IsEditableTarget(e.target))return;try{const s=window.getSelection?.();if(s&&!s.isCollapsed)s.removeAllRanges()}catch{}},true);
 }
-function v9LoadV10(){if(!document.querySelector('link[data-v10]')){const link=document.createElement('link');link.rel='stylesheet';link.href='v10.css';link.dataset.v10='1';document.head.appendChild(link)}if(!document.querySelector('script[data-v10]')){const script=document.createElement('script');script.src='v10.js';script.dataset.v10='1';document.body.appendChild(script)}}
-function v9LoadV12(){if(!document.querySelector('link[data-v12]')){const link=document.createElement('link');link.rel='stylesheet';link.href='v12.css';link.dataset.v12='1';document.head.appendChild(link)}if(!document.querySelector('script[data-v12]')){const script=document.createElement('script');script.src='v12.js';script.dataset.v12='1';document.body.appendChild(script)}}
-function v9LoadV13(){if(!document.querySelector('script[data-v13]')){const script=document.createElement('script');script.src='v13.js';script.dataset.v13='1';document.body.appendChild(script)}}
-function v9LoadV14(){if(!document.querySelector('link[data-v14]')){const link=document.createElement('link');link.rel='stylesheet';link.href='v14.css';link.dataset.v14='1';document.head.appendChild(link)}if(!document.querySelector('script[data-v14]')){const script=document.createElement('script');script.src='v14.js';script.dataset.v14='1';document.body.appendChild(script)}}
-function v9LoadV15(){if(!document.querySelector('link[data-v15]')){const link=document.createElement('link');link.rel='stylesheet';link.href='v15.css';link.dataset.v15='1';document.head.appendChild(link)}if(!document.querySelector('script[data-v15]')){const script=document.createElement('script');script.src='v15.js';script.dataset.v15='1';document.body.appendChild(script)}}
-function v9Init(){v9InstallTouchGuards();v9ScanExpressionControls();const observer=new MutationObserver(v9ScheduleScan);observer.observe(document.body,{childList:true,subtree:true});window.addEventListener('pageshow',v9ScheduleScan);v9LoadV10();v9LoadV12();v9LoadV13();v9LoadV14();v9LoadV15()}
+
+function v9EnsurePatchCss(name){
+  if(document.querySelector(`link[data-${name}]`))return;
+  const link=document.createElement('link');link.rel='stylesheet';link.href=`${name}.css`;link.dataset[name]='1';document.head.appendChild(link);
+}
+function v9LoadPatchScript(name){
+  return new Promise(resolve=>{
+    const existing=document.querySelector(`script[data-${name}]`);if(existing){resolve();return}
+    const script=document.createElement('script');script.src=`${name}.js`;script.async=false;script.dataset[name]='1';script.onload=resolve;script.onerror=()=>{console.warn(`Could not load ${name}.js`);resolve()};document.body.appendChild(script);
+  });
+}
+async function v9LoadPatchChain(){
+  /* CSS can arrive in parallel, but behaviour patches execute strictly in order.
+     This avoids device/cache-dependent races between patches that extend each other. */
+  ['v10','v12','v14','v15','v16'].forEach(v9EnsurePatchCss);
+  for(const name of ['v10','v12','v13','v14','v15','v16'])await v9LoadPatchScript(name);
+}
+function v9Init(){
+  v9InstallTouchGuards();v9ScanExpressionControls();
+  const observer=new MutationObserver(v9ScheduleScan);observer.observe(document.body,{childList:true,subtree:true});
+  window.addEventListener('pageshow',v9ScheduleScan);
+  v9LoadPatchChain();
+}
 v9Init();
