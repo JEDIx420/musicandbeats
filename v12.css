@@ -1,0 +1,108 @@
+/* Music & Beats V12 — iPad interaction hardening.
+   Touch-capable devices treat the workstation as an instrument, not selectable web content. */
+
+/* v12.js adds .v12-touch-device when the browser exposes touch points. */
+.v12-touch-device .app-shell,
+.v12-touch-device .app-shell *:not(input):not(textarea):not(select):not(option):not([contenteditable="true"]){
+  -webkit-user-select:none!important;
+  user-select:none!important;
+  -webkit-touch-callout:none!important;
+  -webkit-user-drag:none!important;
+}
+
+/* Genuine editable/native controls retain their normal Safari behaviour. */
+.v12-touch-device .app-shell input[type="text"],
+.v12-touch-device .app-shell input[type="number"],
+.v12-touch-device .app-shell input[type="search"],
+.v12-touch-device .app-shell input[type="email"],
+.v12-touch-device .app-shell input[type="url"],
+.v12-touch-device .app-shell input[type="password"],
+.v12-touch-device .app-shell textarea,
+.v12-touch-device .app-shell select,
+.v12-touch-device .app-shell [contenteditable="true"]{
+  -webkit-user-select:text!important;
+  user-select:text!important;
+  -webkit-touch-callout:default!important;
+}
+
+/* Kill Safari's grey/blue tap flash across the workstation. */
+.v12-touch-device .app-shell button,
+.v12-touch-device .app-shell [role="button"],
+.v12-touch-device .app-shell .step,
+.v12-touch-device .app-shell .chord-pad,
+.v12-touch-device .app-shell .piano-key{
+  -webkit-tap-highlight-color:transparent!important;
+}
+
+/* Normal UI controls should respond like app controls, without double-tap browser gestures. */
+.v12-touch-device .app-shell button,
+.v12-touch-device .app-shell [role="button"],
+.v12-touch-device .app-shell select,
+.v12-touch-device .app-shell input[type="checkbox"],
+.v12-touch-device .app-shell .step{
+  touch-action:manipulation;
+}
+
+/* Musical playing surfaces own the gesture completely: no scroll, zoom, callout or selection while playing. */
+.v12-touch-device .keyboard,
+.v12-touch-device .piano-key,
+.v12-touch-device .chord-pads,
+.v12-touch-device .chord-pad,
+.v12-touch-device .v6-smartkeys,
+.v12-touch-device #playChords,
+.v12-touch-device #recordChords{
+  touch-action:none!important;
+  -webkit-user-select:none!important;
+  user-select:none!important;
+  -webkit-touch-callout:none!important;
+}
+
+/* Slider drags should move the control rather than the page. */
+.v12-touch-device .app-shell input[type="range"]{
+  touch-action:none;
+  -webkit-user-select:none!important;
+  user-select:none!important;
+  -webkit-touch-callout:none!important;
+}
+
+/* Nested labels are display-only inside pads/buttons. Safari sometimes starts selection from these nodes. */
+.v12-touch-device .chord-pad strong,
+.v12-touch-device .chord-pad small,
+.v12-touch-device .chord-pad kbd,
+.v12-touch-device .piano-key *,
+.v12-touch-device button > strong,
+.v12-touch-device button > small,
+.v12-touch-device button > span:not(.switch span),
+.v12-touch-device .step *,
+.v12-touch-device .rail-layer *,
+.v12-touch-device .v5-layer-card button *,
+.v12-touch-device .v6-timeline *{
+  pointer-events:none;
+}
+
+/* Native controls nested inside larger custom panels must remain touchable. */
+.v12-touch-device label input,
+.v12-touch-device label select,
+.v12-touch-device .expression-strip input,
+.v12-touch-device .v10-input-strip input,
+.v12-touch-device .v6-guitar-rig input,
+.v12-touch-device .v6-guitar-rig select,
+.v12-touch-device .v6-smart-editor input,
+.v12-touch-device .v6-smart-editor select{
+  pointer-events:auto!important;
+}
+
+/* Images / SVG artwork should never become draggable selection targets. */
+.v12-touch-device .app-shell img,
+.v12-touch-device .app-shell svg{
+  -webkit-user-drag:none!important;
+  user-drag:none!important;
+  pointer-events:none;
+}
+
+/* Keep controls visually stable during rapid multi-touch playing. */
+.v12-touch-device .chord-pad:active,
+.v12-touch-device .piano-key:active,
+.v12-touch-device .step:active{
+  -webkit-tap-highlight-color:transparent!important;
+}
