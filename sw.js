@@ -1,5 +1,5 @@
-const CACHE='musicandbeats-v5';
-const ASSETS=['./','./index.html','./styles.css','./v4.css','./v5.css','./app.js','./workflow-fixes.js','./v4-fixes.js','./v5-fixes.js','./recorder-worklet.js','./manifest.webmanifest','./icon.svg','./assets/instruments/grand-piano.svg','./assets/instruments/electric-piano.svg','./assets/instruments/organ.svg','./assets/instruments/synth.svg','./assets/instruments/pad.svg','./assets/instruments/bass.svg'];
+const CACHE='musicandbeats-v5.1';
+const ASSETS=['./','./index.html','./styles.css','./v4.css','./v5.css','./app.js','./workflow-fixes.js','./v4-fixes.js','./v5-fixes.js','./v5-hotfix.js','./recorder-worklet.js','./manifest.webmanifest','./icon.svg','./assets/instruments/grand-piano.svg','./assets/instruments/electric-piano.svg','./assets/instruments/organ.svg','./assets/instruments/synth.svg','./assets/instruments/pad.svg','./assets/instruments/bass.svg'];
 self.addEventListener('install',e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS)).then(()=>self.skipWaiting())));
 self.addEventListener('activate',e=>e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim())));
 self.addEventListener('fetch',e=>{
