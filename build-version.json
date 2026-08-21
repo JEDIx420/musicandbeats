@@ -1,5 +1,5 @@
 {
-  "build": "v20",
-  "contains": "v19 features plus deployment recovery",
-  "publishedAt": "2026-08-21T17:50:00Z"
+  "build": "v21",
+  "contains": "bootstrap repair: single V7 load, hyphen-safe patch chain, V18/V19 features",
+  "publishedAt": "2026-08-21T18:03:00Z"
 }
