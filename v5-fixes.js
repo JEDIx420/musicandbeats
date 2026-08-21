@@ -7,8 +7,9 @@ const v5NumberChordVoices=new Map();
 function v5FilterSoundSelect(select,fallback='Studio Grand'){
   if(!select)return;
   const allowed=V5_KEY_PRESETS(),current=allowed.includes(select.value)?select.value:fallback;
-  select.innerHTML=allowed.map(n=>`<option ${n===current?'selected':''}>${n}</option>`).join('');
-  select.value=current;
+  const existing=[...select.options].map(o=>o.value||o.textContent);
+  if(existing.length!==allowed.length||existing.some((v,i)=>v!==allowed[i]))select.innerHTML=allowed.map(n=>`<option ${n===current?'selected':''}>${n}</option>`).join('');
+  if(select.value!==current)select.value=current;
 }
 function v5NormalizeSoundMenus(){
   v5FilterSoundSelect($('#playSound'));
@@ -37,7 +38,7 @@ function v5CurrentChordContext(){
   }
   return null;
 }
-function v5ChordIndexFromKey(e){return /^[1-7]$/.test(e.key)?+e.key-1:-1}
+function v5ChordIndexFromKey(e){if(!/^[1-7]$/.test(e.key))return -1;return +e.key-1}
 function v5TriggerNumberChord(index){
   if(v5NumberChordVoices.has(index))return true;
   const c=v5CurrentChordContext(),pad=c?.host?.querySelectorAll('.chord-pad')?.[index];
@@ -68,12 +69,15 @@ function v5InstallFluxPad(){
   const panel=document.createElement('section');panel.id='performancePadPanel';panel.className='panel performance-pad-panel';
   panel.innerHTML=`<div class="panel-head"><div><span class="panel-kicker">LIVE FX</span><h2>Flux Pad</h2><p>Drag while you play — left/right shapes tone, up/down adds space.</p></div><span class="flux-hint">TRACKPAD + TOUCH</span></div><div class="flux-body"><div id="fluxPad" class="flux-pad" role="slider" aria-label="Tone and space performance pad" tabindex="0"><div class="flux-grid"></div><span class="flux-axis flux-axis-x">DARK <b>TONE</b> BRIGHT</span><span class="flux-axis flux-axis-y">WET <b>SPACE</b> DRY</span><i id="fluxOrb" class="flux-orb"></i></div><div class="flux-side"><div class="flux-readout"><span>TONE<strong id="fluxTone">7.0k</strong></span><span>SPACE<strong id="fluxSpace">18%</strong></span></div><div class="flux-scenes"><button data-tone="9800" data-space=".04" type="button">Tight</button><button data-tone="4300" data-space=".18" type="button">Warm</button><button data-tone="7200" data-space=".52" type="button">Dream</button></div><small>Tip: hold a chord with <kbd>1–7</kbd> and move the pad with the trackpad at the same time.</small></div></div>`;
   workspace.appendChild(panel);
-  const pad=$('#fluxPad');const move=e=>{const r=pad.getBoundingClientRect(),x=clamp((e.clientX-r.left)/r.width,0,1),y=clamp((e.clientY-r.top)/r.height,0,1);v5SetFx(700+x*(12000-700),(1-y)*.65)};
-  pad.addEventListener('pointerdown',e=>{e.preventDefault();pad.setPointerCapture?.(e.pointerId);move(e)});pad.addEventListener('pointermove',e=>{if(pad.hasPointerCapture?.(e.pointerId)){e.preventDefault();move(e)}});
+  const pad=$('#fluxPad'),move=e=>{const r=pad.getBoundingClientRect(),x=clamp((e.clientX-r.left)/r.width,0,1),y=clamp((e.clientY-r.top)/r.height,0,1);v5SetFx(700+x*(12000-700),(1-y)*.65)};
+  pad.addEventListener('pointerdown',e=>{e.preventDefault();pad.setPointerCapture?.(e.pointerId);move(e)});
+  pad.addEventListener('pointermove',e=>{if(pad.hasPointerCapture?.(e.pointerId)){e.preventDefault();move(e)}});
   pad.addEventListener('keydown',e=>{const toneStep=400,spaceStep=.035;if(e.key==='ArrowLeft')v5SetFx(V4_PLAY_EXPR.tone-toneStep,V4_PLAY_EXPR.space);else if(e.key==='ArrowRight')v5SetFx(V4_PLAY_EXPR.tone+toneStep,V4_PLAY_EXPR.space);else if(e.key==='ArrowUp')v5SetFx(V4_PLAY_EXPR.tone,V4_PLAY_EXPR.space+spaceStep);else if(e.key==='ArrowDown')v5SetFx(V4_PLAY_EXPR.tone,V4_PLAY_EXPR.space-spaceStep);else return;e.preventDefault()});
   panel.querySelectorAll('.flux-scenes button').forEach(b=>b.addEventListener('click',()=>v5SetFx(+b.dataset.tone,+b.dataset.space)));v5PaintFluxPad();
 }
 
+const v5BaseEnsureAudio=ensureAudio;
+ensureAudio=async function(){const out=await v5BaseEnsureAudio();v5ApplyLayerMix();return out};
 function v5ApplyLayerMix(){if(!ctx)return;session.layers.forEach(l=>{ensureLayerGain(l);const audible=!l.muted&&(v5SoloLayer===null||v5SoloLayer===l.id),level=audible?(l.volume??.9):0;try{l.gain.gain.setTargetAtTime(level,ctx.currentTime,.018)}catch{l.gain.gain.value=level}})}
 function v5ClearLayer(l){stopLayerSource(l);l.blob=null;l.buffer=null;l.recordedBpm=null;l.recordedBars=null;if(sessionPlaying)stopSession();renderSession()}
 function v5EnhanceLayerRail(){
