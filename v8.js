@@ -1,6 +1,31 @@
 /* Music & Beats V8 — Record command bar and premium session settings. */
 function v8ActionMarkup(icon,label){return`<span class="v8-action-icon" aria-hidden="true">${icon}</span><span class="v8-action-text">${label}</span>`}
 
+function v8InstallBootGate(){
+  document.documentElement.classList.add('mb-booting');
+  if(!document.querySelector('#mbBootStyle')){
+    const style=document.createElement('style');style.id='mbBootStyle';style.textContent=`
+      html.mb-booting .app-shell{opacity:0!important;visibility:hidden!important}
+      .app-shell{transition:opacity .14s ease}
+      #mbBootSplash{position:fixed;inset:0;z-index:99999;display:grid;place-items:center;background:radial-gradient(circle at 50% 35%,rgba(139,124,255,.13),transparent 28rem),#07080a;transition:opacity .16s ease,visibility .16s ease}
+      #mbBootSplash>div{display:grid;justify-items:center;gap:9px;color:#f7f8fb;font-family:Inter,ui-sans-serif,system-ui,-apple-system,sans-serif}
+      #mbBootSplash img{width:46px;height:46px;filter:drop-shadow(0 0 16px rgba(139,124,255,.28))}
+      #mbBootSplash strong{font-size:16px;letter-spacing:-.025em}#mbBootSplash span{font-size:8px;letter-spacing:.18em;font-weight:850;color:#858c9a}
+      #mbBootSplash i{width:78px;height:2px;overflow:hidden;border-radius:3px;background:#1d2028;position:relative}#mbBootSplash i:after{content:'';position:absolute;inset:0;width:42%;background:linear-gradient(90deg,#8b7cff,#69e7ff);animation:mbBoot 1s ease-in-out infinite alternate}@keyframes mbBoot{from{transform:translateX(-20%)}to{transform:translateX(160%)}}
+      html.mb-ready #mbBootSplash{opacity:0;visibility:hidden;pointer-events:none}
+    `;document.head.appendChild(style);
+  }
+  if(!document.querySelector('#mbBootSplash')){const splash=document.createElement('div');splash.id='mbBootSplash';splash.innerHTML='<div><img src="icon.svg" alt=""><strong>Music & Beats</strong><span>LOADING WORKSTATION</span><i></i></div>';document.body.prepend(splash)}
+  try{clearTimeout(window.__MB_BOOT_FAILSAFE)}catch{}
+  window.__MB_BOOT_FAILSAFE=setTimeout(()=>{document.documentElement.classList.remove('mb-booting');document.documentElement.classList.add('mb-ready')},3500);
+}
+function v8PreloadPatches(){
+  ['v9','v10','v12','v13','v14','v15','v16','v17','v17-fixes','v17-post','v18','v18-fixes','v19','v22','v23'].forEach(name=>{
+    if(document.querySelector(`link[data-mb-preload="${name}"]`))return;
+    const link=document.createElement('link');link.rel='preload';link.as='script';link.href=`${name}.js`;link.dataset.mbPreload=name;document.head.appendChild(link);
+  });
+}
+
 function v8InstallRecordToolbar(){
   const top=$('#recordScreen .record-topline');
   if(!top||top.dataset.v8==='1')return false;
@@ -66,6 +91,8 @@ function v8LoadUpdateGuard(){
   if(document.querySelector('script[data-update-guard]'))return;
   const script=document.createElement('script');script.src='update-guard.js';script.dataset.updateGuard='1';document.body.appendChild(script);
 }
+v8InstallBootGate();
+v8PreloadPatches();
 v8Init();
 v8LoadV9();
 v8LoadUpdateGuard();
