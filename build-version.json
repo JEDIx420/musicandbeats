@@ -1,0 +1,5 @@
+{
+  "build": "v20",
+  "contains": "v19 features plus deployment recovery",
+  "publishedAt": "2026-08-21T17:50:00Z"
+}
