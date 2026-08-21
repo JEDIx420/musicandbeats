@@ -62,5 +62,10 @@ function v8LoadV9(){
   if(!document.querySelector('link[data-v9]')){const link=document.createElement('link');link.rel='stylesheet';link.href='v9.css';link.dataset.v9='1';document.head.appendChild(link)}
   if(!document.querySelector('script[data-v9]')){const script=document.createElement('script');script.src='v9.js';script.dataset.v9='1';document.body.appendChild(script)}
 }
+function v8LoadUpdateGuard(){
+  if(document.querySelector('script[data-update-guard]'))return;
+  const script=document.createElement('script');script.src='update-guard.js';script.dataset.updateGuard='1';document.body.appendChild(script);
+}
 v8Init();
 v8LoadV9();
+v8LoadUpdateGuard();
