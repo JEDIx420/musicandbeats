@@ -1,6 +1,6 @@
-/* Music & Beats V20 — deployment/update recovery guard. */
+/* Music & Beats V21 — deployment/update recovery guard. */
 (()=>{
-  const BUILD='v20',reloadKey=`musicandbeats:reload:${BUILD}`;
+  const BUILD='v21',reloadKey=`musicandbeats:reload:${BUILD}`;
   window.MUSIC_AND_BEATS_BUILD=BUILD;
   async function remoteBuild(){
     try{
@@ -22,7 +22,10 @@
       const remote=await remoteBuild();
       if(remote?.build&&remote.build!==BUILD){
         await reg.update().catch(()=>{});
+        if(reg.waiting)reg.waiting.postMessage({type:'SKIP_WAITING'});
         setTimeout(reloadOnce,700);
+      }else if(reg.waiting){
+        reg.waiting.postMessage({type:'SKIP_WAITING'});
       }
       setTimeout(()=>reg.update().catch(()=>{}),2500);
     }catch(e){console.warn('Music & Beats update check skipped',e)}
