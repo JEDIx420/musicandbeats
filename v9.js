@@ -59,8 +59,8 @@ function v9LoadPatchScript(name){
 }
 async function v9LoadPatchChain(){
   /* CSS is preloaded by index.html on current builds; this remains a safe fallback. */
-  ['v10','v12','v14','v15','v16','v17','v18','v19','v22','v23','v24','v25','v26','v27'].forEach(v9EnsurePatchCss);
-  for(const name of ['v10','v12','v13','v14','v15','v16','v17','v17-fixes','v17-post','v18','v18-fixes','v19','v22','v23','v24','v25','v26','v27'])await v9LoadPatchScript(name);
+  ['v10','v12','v14','v15','v16','v17','v18','v19','v22','v23','v24','v25','v26','v27','v28'].forEach(v9EnsurePatchCss);
+  for(const name of ['v10','v12','v13','v14','v15','v16','v17','v17-fixes','v17-post','v18','v18-fixes','v19','v22','v23','v24','v25','v26','v27','v28'])await v9LoadPatchScript(name);
 }
 function v9MarkReady(){
   try{clearTimeout(window.__MB_BOOT_FAILSAFE)}catch{}
