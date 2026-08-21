@@ -1,5 +1,15 @@
 /* Music & Beats V17 integration hardening. */
 
+/* Expand the existing Guitar rig with more ready-made pedalboard/amp scenes. */
+Object.assign(V6_GUITAR_PATCHES,{
+  'Funk Clean':{trim:.96,tone:9200,output:.9,drive:{on:false,amount:.03},chorus:{on:true,amount:.12},delay:{on:false,amount:.05},reverb:{on:true,amount:.09}},
+  'Stereo Chorus':{trim:.94,tone:7800,output:.87,drive:{on:false,amount:.04},chorus:{on:true,amount:.48},delay:{on:false,amount:.08},reverb:{on:true,amount:.16}},
+  'Tape Echo':{trim:.91,tone:6200,output:.84,drive:{on:true,amount:.13},chorus:{on:false,amount:.07},delay:{on:true,amount:.48},reverb:{on:true,amount:.18}},
+  'Modern Drive':{trim:.86,tone:7100,output:.76,drive:{on:true,amount:.72},chorus:{on:false,amount:.05},delay:{on:false,amount:.06},reverb:{on:true,amount:.08}},
+  'Shoegaze Cloud':{trim:.92,tone:6800,output:.8,drive:{on:true,amount:.22},chorus:{on:true,amount:.41},delay:{on:true,amount:.36},reverb:{on:true,amount:.7}},
+  'Cathedral Swell':{trim:.97,tone:8300,output:.83,drive:{on:false,amount:.04},chorus:{on:true,amount:.28},delay:{on:true,amount:.44},reverb:{on:true,amount:.82}}
+});
+
 /* Make legacy V15 bass arp state forward-compatible with the full V17 engine. */
 const v17BaseLayerArp=v17LayerArp;
 v17LayerArp=function(layer,kind){
@@ -57,6 +67,21 @@ v17EnhanceRecordArp=function(){
   return v17BaseEnhanceRecordArp();
 };
 
+/* When a Record arp is switched off/stopped, clear any HELD state as well. */
+const v17BaseBindRecordArp=v17BindRecordArp;
+v17BindRecordArp=function(panel,layer,kind){
+  v17BaseBindRecordArp(panel,layer,kind);if(!panel||panel.dataset.v17ReleaseBound==='1')return;panel.dataset.v17ReleaseBound='1';
+  panel.querySelector('[data-v17-power]')?.addEventListener('click',()=>{if(!v17LayerArp(layer,kind).enabled&&typeof v14ReleaseLatch==='function')v14ReleaseLatch(true)});
+  panel.querySelector('[data-v17-stop]')?.addEventListener('click',()=>{if(typeof v14ReleaseLatch==='function')v14ReleaseLatch(true)});
+};
+
+/* Keep Play ARP rocker/latch state in the persistent Play state object. */
+function v17SyncPlayArpButtons(){
+  const p=$('#v6ArpPanel');if(!p||p.dataset.v17Sync==='1')return;p.dataset.v17Sync='1';
+  p.querySelector('.v6-arp-power')?.addEventListener('click',()=>setTimeout(()=>v17CaptureArpState(V17_PLAY_ARP),0));
+  p.querySelector('[data-arp-toggle="latch"]')?.addEventListener('click',()=>setTimeout(()=>v17CaptureArpState(V17_PLAY_ARP),0));
+}
+
 /* Restore V17 Play rack/arp metadata when a named project is opened. */
 if(typeof v7OpenProject==='function'&&typeof v7StoreGet==='function'){
   const v17BaseOpenProject=v7OpenProject;
@@ -65,10 +90,10 @@ if(typeof v7OpenProject==='function'&&typeof v7StoreGet==='function'){
     const out=await v17BaseOpenProject(id);
     if(data?.v17PlayFx){Object.assign(V17_PLAY_FX,v6Clone(data.v17PlayFx));}
     if(data?.v17PlayArp){Object.assign(V17_PLAY_ARP,v17ArpStateCopy(data.v17PlayArp));V17_PLAY_ARP.pattern=[...(data.v17PlayArp.pattern||V17_ARP_DEFAULTS.pattern)]}
-    requestAnimationFrame(()=>{v17Hardwareize();if(ctx)v17ApplyFx()});return out;
+    requestAnimationFrame(()=>{v17Hardwareize();v17SyncPlayArpButtons();if(ctx)v17ApplyFx()});return out;
   };
 }
 
 /* Keep Play state coherent when moving between Smart Keys and Bass. */
-document.querySelectorAll('#playScreen .instrument-tab').forEach(tab=>tab.addEventListener('click',()=>requestAnimationFrame(()=>{v17ApplyArpState(V17_PLAY_ARP);v17Hardwareize()})));
-requestAnimationFrame(()=>{v17EnhanceRecordArp();v17Hardwareize()});
+document.querySelectorAll('#playScreen .instrument-tab').forEach(tab=>tab.addEventListener('click',()=>requestAnimationFrame(()=>{v17ApplyArpState(V17_PLAY_ARP);v17Hardwareize();v17SyncPlayArpButtons()})));
+requestAnimationFrame(()=>{v17EnhanceRecordArp();v17Hardwareize();v17SyncPlayArpButtons();v6SyncGuitarUIs?.()});
