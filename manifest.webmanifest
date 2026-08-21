@@ -1,12 +1,15 @@
 {
-  "name": "Music & Beats Live Looper",
+  "id": "./",
+  "name": "Music & Beats",
   "short_name": "Music & Beats",
+  "description": "An iPad-first browser music workstation with Smart Keys, guitar effects, beats, bass, six-layer looping, timeline editing and local project saving.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
-  "background_color": "#0b0c0f",
-  "theme_color": "#101114",
-  "description": "A six-layer iPad live looper with keyboard, smart chords and beat generation.",
+  "orientation": "any",
+  "background_color": "#07080a",
+  "theme_color": "#090a0f",
+  "categories": ["music", "entertainment", "utilities"],
   "icons": [
     { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
   ]
