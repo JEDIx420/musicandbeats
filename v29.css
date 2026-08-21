@@ -1,0 +1,11 @@
+/* Music & Beats V29 — interaction hardening for Play ARP controls. */
+#playScreen #v6ArpPanel .v6-arp-body,
+#playScreen #v6ArpPanel .v26-arp-grid,
+#playScreen #v6ArpPanel .v28-arp-deck,
+#playScreen #v6ArpPanel .v28-live-control{position:relative!important;z-index:2!important;pointer-events:auto!important}
+#playScreen #v6ArpPanel .v28-live-control select,
+#playScreen #v6ArpPanel .v28-live-control .v22-arp-knob{position:relative!important;z-index:5!important;pointer-events:auto!important}
+#playScreen #v6ArpPanel .v28-live-control select{touch-action:manipulation!important}
+#playScreen #v6ArpPanel .v28-live-control .v22-arp-knob{touch-action:none!important;-webkit-tap-highlight-color:transparent!important}
+#playScreen #v6ArpPanel .v22-native-hidden{pointer-events:none!important}
+#playScreen #v6ArpPanel .v29-turning>span{filter:brightness(1.14);box-shadow:inset 0 1px 3px rgba(255,255,255,.14),0 0 0 2px rgba(105,231,255,.38),0 0 18px rgba(105,231,255,.22)!important}
