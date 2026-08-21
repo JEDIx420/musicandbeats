@@ -1,0 +1,14 @@
+/* Music & Beats V16 — stable compositing and layout across desktop/tablet/mobile. */
+html.v16-ui-stable{scroll-behavior:auto}html.v16-ui-stable .screen.active,html.v16-ui-stable #layerSourceTools,html.v16-ui-stable .instrument-panel,html.v16-ui-stable .record-stage{overflow-anchor:none}
+html.v16-ui-stable .v6-arp-panel,html.v16-ui-stable .v6-arp-visual,html.v16-ui-stable .v15-record-arp,html.v16-ui-stable .keyboard,html.v16-ui-stable .sequencer{isolation:isolate}
+html.v16-ui-stable .v6-arp-visual{contain:paint;backface-visibility:hidden;-webkit-backface-visibility:hidden;transform:translateZ(0)}
+html.v16-ui-stable .v6-arp-lane{transition:opacity .055s linear,background-color .055s linear!important;transform:none!important;box-shadow:none!important;will-change:opacity}
+html.v16-ui-stable .v6-arp-lane.hot{transform:none!important;box-shadow:none!important;opacity:1!important;background:linear-gradient(180deg,rgba(94,234,212,.95),rgba(59,130,246,.34))!important}
+html.v16-ui-stable .v6-arp-panel.v15-bass-arp .v6-arp-lane.hot{background:linear-gradient(180deg,rgba(250,204,21,.98),rgba(245,158,11,.34))!important;box-shadow:none!important}
+html.v16-ui-stable .v15-record-arp{contain:paint;transition:border-color .14s linear,background-color .14s linear!important}
+html.v16-ui-stable #recordKeyboard .piano-key.arp-active,html.v16-ui-stable #playKeyboard .piano-key.arp-active{box-shadow:inset 0 -6px 0 rgba(250,204,21,.78)!important}
+html.v16-ui-stable #recordKeyboard .black-key.arp-active,html.v16-ui-stable #playKeyboard .black-key.arp-active{box-shadow:inset 0 -5px 0 rgba(250,204,21,.78)!important}
+html.v16-ui-stable .v6-playhead{will-change:transform;backface-visibility:hidden;-webkit-backface-visibility:hidden}
+html.v16-ui-stable .v6-meter-fill,html.v16-ui-stable .v10-input-meter-fill{will-change:width}
+@media(pointer:coarse),(hover:none){html.v16-ui-stable .v6-arp-panel:before{opacity:.55}html.v16-ui-stable .v6-arp-power.active,html.v16-ui-stable .v15-record-arp.active{box-shadow:none!important}html.v16-ui-stable button,html.v16-ui-stable .piano-key,html.v16-ui-stable .chord-pad{-webkit-tap-highlight-color:transparent}html.v16-ui-stable .v6-arp-lane{transition:opacity .04s linear!important}}
+@media(prefers-reduced-motion:reduce){html.v16-ui-stable .v6-arp-lane,html.v16-ui-stable .v15-record-arp,html.v16-ui-stable .v6-meter-fill,html.v16-ui-stable .v10-input-meter-fill{transition:none!important}}
