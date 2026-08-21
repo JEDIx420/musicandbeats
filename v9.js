@@ -43,13 +43,15 @@ function v9InstallTouchGuards(){
 }
 
 function v9EnsurePatchCss(name){
-  if(document.querySelector(`link[data-${name}]`))return;
-  const link=document.createElement('link');link.rel='stylesheet';link.href=`${name}.css`;link.dataset[name]='1';document.head.appendChild(link);
+  const marker=`data-${name}`;
+  if(document.querySelector(`link[${marker}]`))return;
+  const link=document.createElement('link');link.rel='stylesheet';link.href=`${name}.css`;link.setAttribute(marker,'1');document.head.appendChild(link);
 }
 function v9LoadPatchScript(name){
   return new Promise(resolve=>{
-    const existing=document.querySelector(`script[data-${name}]`);if(existing){resolve();return}
-    const script=document.createElement('script');script.src=`${name}.js`;script.async=false;script.dataset[name]='1';script.onload=resolve;script.onerror=()=>{console.warn(`Could not load ${name}.js`);resolve()};document.body.appendChild(script);
+    const marker=`data-${name}`;
+    const existing=document.querySelector(`script[${marker}]`);if(existing){resolve();return}
+    const script=document.createElement('script');script.src=`${name}.js`;script.async=false;script.setAttribute(marker,'1');script.onload=resolve;script.onerror=()=>{console.warn(`Could not load ${name}.js`);resolve()};document.body.appendChild(script);
   });
 }
 async function v9LoadPatchChain(){
@@ -61,6 +63,6 @@ function v9Init(){
   v9InstallTouchGuards();v9ScanExpressionControls();
   const observer=new MutationObserver(v9ScheduleScan);observer.observe(document.body,{childList:true,subtree:true});
   window.addEventListener('pageshow',v9ScheduleScan);
-  v9LoadPatchChain();
+  v9LoadPatchChain().catch(e=>console.error('Music & Beats patch chain failed',e));
 }
 v9Init();
