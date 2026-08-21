@@ -68,9 +68,10 @@ function v19BoardOptions(current){
   return V19_BOARD_GROUPS.map(([label,names])=>`<optgroup label="${label}">${names.filter(n=>V17_FX_BOARDS[n]).map(n=>`<option value="${n}" ${n===current?'selected':''}>${n}</option>`).join('')}</optgroup>`).join('');
 }
 function v19PopulateBoardSelect(select){
-  if(!(select instanceof HTMLSelectElement))return;const current=select.value||'Clean Studio';
+  if(!(select instanceof HTMLSelectElement)||select.dataset.v19Boards==='1')return;const current=select.value||'Clean Studio';
   select.innerHTML=v19BoardOptions(current);
   if(V17_FX_BOARDS[current])select.value=current;else select.value='Clean Studio';
+  select.dataset.v19Boards='1';
 }
 function v19RackContext(rack){return rack.closest('#layerSourceTools')?'record':'play'}
 function v19RackStorageKey(context){return`musicandbeats:v19:rack:${context}`}
