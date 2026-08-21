@@ -43,9 +43,13 @@ function v9InstallTouchGuards(){
   document.addEventListener('pointerdown',e=>{if(!v9IsPerformanceTarget(e.target)||v9IsEditableTarget(e.target))return;try{const s=window.getSelection?.();if(s&&!s.isCollapsed)s.removeAllRanges()}catch{}},true);
 }
 
+function v9LoadV10(){
+  if(!document.querySelector('link[data-v10]')){const link=document.createElement('link');link.rel='stylesheet';link.href='v10.css';link.dataset.v10='1';document.head.appendChild(link)}
+  if(!document.querySelector('script[data-v10]')){const script=document.createElement('script');script.src='v10.js';script.dataset.v10='1';document.body.appendChild(script)}
+}
 function v9Init(){
   v9InstallTouchGuards();v9ScanExpressionControls();
   const observer=new MutationObserver(v9ScheduleScan);observer.observe(document.body,{childList:true,subtree:true});
-  window.addEventListener('pageshow',v9ScheduleScan);
+  window.addEventListener('pageshow',v9ScheduleScan);v9LoadV10();
 }
 v9Init();
