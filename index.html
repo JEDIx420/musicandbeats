@@ -11,6 +11,7 @@
   <link rel="manifest" href="manifest.webmanifest" />
   <link rel="icon" href="icon.svg" type="image/svg+xml" />
   <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="v4.css" />
 </head>
 <body>
   <div class="app-shell">
@@ -80,5 +81,6 @@
   <dialog id="settingsDialog" class="settings-dialog"><form method="dialog"><div class="dialog-head"><div><span class="eyebrow">SESSION SETTINGS</span><h2>Adjust the grid</h2></div><button value="cancel" class="ghost-btn">×</button></div><label>BPM<input id="editSessionBpm" type="number" min="40" max="220" /></label><label>Bars<select id="editSessionBars"><option>1</option><option>2</option><option>4</option><option>8</option><option>16</option></select></label><label>Count-in<select id="editCountIn"><option value="0">Off</option><option value="1">1 bar</option><option value="2">2 bars</option><option value="4">4 bars</option></select></label><p class="dialog-note">Changing BPM after recording keeps layers bar-aligned by adjusting loop playback speed. External audio may shift pitch until true time-stretch is added.</p><button id="applySettingsBtn" value="default" class="primary-wide" type="button">Apply changes</button></form></dialog>
   <script src="app.js"></script>
   <script src="workflow-fixes.js"></script>
+  <script src="v4-fixes.js"></script>
 </body>
 </html>
