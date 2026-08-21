@@ -31,24 +31,29 @@ function v24SyncModule(panel,id){
   const toggle=panel.querySelector(`[data-v24-toggle="${id}"]`);if(toggle){toggle.setAttribute('aria-expanded',String(!collapsed));toggle.querySelector('span').textContent=collapsed?'SHOW':'HIDE'}
   const summary=panel.querySelector('[data-v24-summary]');if(summary)summary.textContent=v24ModuleSummary(id,panel);
 }
+function v24LooksLikeHeadCopy(node){return !!node?.querySelector?.('.panel-kicker,h1,h2')&&!node.matches?.('.select-row,.v22-arp-head-actions,.v24-module-actions')}
 function v24InstallToggle(panel,id,title,kicker){
   if(!panel)return;panel.classList.add('v24-play-module');panel.dataset.v24Module=id;
   let head=panel.querySelector(':scope > .panel-head,:scope > .v17-record-arp-head');
   if(!head){head=document.createElement('div');head.className='panel-head v24-generated-head';panel.prepend(head)}
   head.classList.add('v24-module-head');
-  let meta=head.querySelector('.v24-module-meta');
+  let meta=head.querySelector(':scope > .v24-module-meta');
   if(!meta){meta=document.createElement('div');meta.className='v24-module-meta';meta.innerHTML=`<span>${kicker}</span><strong>${title}</strong><small data-v24-summary></small>`;head.prepend(meta)}
-  let actions=head.querySelector('.v24-module-actions');
-  if(!actions){actions=document.createElement('div');actions.className='v24-module-actions';
-    const existing=[...head.children].filter(n=>n!==meta&&!(n.matches?.('.v24-module-actions')));existing.forEach(n=>actions.appendChild(n));head.appendChild(actions)}
-  if(!actions.querySelector(`[data-v24-toggle="${id}"]`)){actions.insertAdjacentHTML('beforeend',v24ToggleMarkup(id,v24ReadCollapsed(id)))}
+  let actions=head.querySelector(':scope > .v24-module-actions');
+  if(!actions){
+    actions=document.createElement('div');actions.className='v24-module-actions';
+    const existing=[...head.children].filter(n=>n!==meta&&!n.matches?.('.v24-module-actions'));
+    existing.forEach(n=>{if(v24LooksLikeHeadCopy(n)){n.classList.add('v24-original-head-copy');return}actions.appendChild(n)});head.appendChild(actions);
+  }
+  /* Existing arp action groups remain useful; flatten them into the canonical action rail. */
+  [...actions.querySelectorAll(':scope > .v22-arp-head-actions')].forEach(group=>{[...group.children].forEach(n=>actions.insertBefore(n,group));group.remove()});
+  if(!actions.querySelector(`[data-v24-toggle="${id}"]`))actions.insertAdjacentHTML('beforeend',v24ToggleMarkup(id,v24ReadCollapsed(id)));
   v24SyncModule(panel,id);
 }
 function v24EnsureToneModule(workspace,instrument){
   let tone=$('#v24ToneFx');if(!tone){tone=document.createElement('section');tone.id='v24ToneFx';tone.className='panel v24-tone-module v24-play-module';tone.innerHTML='<div class="panel-head v24-module-head"><div class="v24-module-meta"><span>SOUND SHAPING</span><strong>Tone & FX</strong><small data-v24-summary>Performance controls + effects</small></div><div class="v24-module-actions"></div></div><div class="v24-tone-body"></div>';instrument.after(tone)}
   const body=tone.querySelector('.v24-tone-body');
   document.querySelectorAll('#playScreen .instrument-panel .v9-expression-shell,#playScreen .instrument-panel .v19-rack-shell').forEach(node=>body.appendChild(node));
-  /* Catch a newly rebuilt rack before V19 has wrapped it, without stealing record racks. */
   document.querySelectorAll('#playScreen .instrument-panel > .v17-fx-rack').forEach(node=>body.appendChild(node));
   v24InstallToggle(tone,'tone','Tone & FX','SOUND SHAPING');
   const hasContent=!!body.querySelector('.v9-expression-shell,.v19-rack-shell,.v17-fx-rack');tone.classList.toggle('v24-empty-module',!hasContent);
@@ -59,10 +64,9 @@ function v24NormalizePlayArp(arp){
   const body=arp.querySelector('.v6-arp-body'),visual=arp.querySelector('.v6-arp-visual'),controls=arp.querySelector('.v6-arp-controls,.v22-arp-deck');
   if(body){body.classList.add('v24-arp-body');if(visual)visual.classList.add('v24-arp-scope-wrap');if(controls)controls.classList.add('v24-arp-grid')}
   if(controls){
-    /* Flatten accidental wrapper layers so all twelve controls participate in one 6x2 grid. */
-    const labels=[...controls.querySelectorAll('label')].filter(l=>!l.parentElement?.closest?.('.v22-rhythm-pattern'));
+    const labels=[...controls.querySelectorAll('label')].filter(l=>!l.closest?.('.v22-rhythm-pattern'));
     labels.forEach(l=>{if(l.parentElement!==controls)controls.appendChild(l)});
-    [...controls.children].forEach(n=>{if(n.matches?.('.v17-pattern,.v18-arp-pattern,.v22-rhythm-pattern'))return;if(n.matches?.('label'))return;if(!n.matches?.('button'))n.classList?.add('v24-arp-legacy-hidden')});
+    [...controls.children].forEach(n=>{if(n.matches?.('.v17-pattern,.v18-arp-pattern,.v22-rhythm-pattern,label,button'))return;n.classList?.add('v24-arp-legacy-hidden')});
   }
 }
 function v24BuildPlayStack(){
@@ -72,7 +76,6 @@ function v24BuildPlayStack(){
   const tone=v24EnsureToneModule(workspace,instrument);
   v24InstallToggle(beat,'groove','Groove Box','DRUM MACHINE');
   if(arp){v24InstallToggle(arp,'arp',playInstrument==='bass'?'Bass Arp':'Arp Lab','PATTERN ENGINE');v24NormalizePlayArp(arp)}
-  /* Canonical order: Instrument → Tone & FX → Groove Box → Arp Lab. */
   if(instrument.parentElement===workspace)workspace.appendChild(instrument);
   if(tone.parentElement===workspace)workspace.appendChild(tone);
   if(beat.parentElement===workspace)workspace.appendChild(beat);
@@ -84,7 +87,6 @@ document.addEventListener('click',e=>{const b=e.target.closest?.('[data-v24-togg
 document.addEventListener('change',e=>{if(e.target.closest?.('#playScreen'))v24Schedule()},true);
 const v24Play=$('#playScreen');if(v24Play)new MutationObserver(m=>{if(m.some(x=>[...x.addedNodes].some(n=>n.nodeType===1&&(n.matches?.('.v9-expression-shell,.v19-rack-shell,.v17-fx-rack,#v6ArpPanel')||n.querySelector?.('.v9-expression-shell,.v19-rack-shell,.v17-fx-rack,#v6ArpPanel')))))v24Schedule()}).observe(v24Play,{childList:true,subtree:true});
 
-/* Re-apply after instrument renders without touching Record. */
 if(typeof renderPlayInstrument==='function'){
   const v24BaseRenderPlayInstrument=renderPlayInstrument;renderPlayInstrument=function(){const out=v24BaseRenderPlayInstrument.apply(this,arguments);v24Schedule();return out};
 }
