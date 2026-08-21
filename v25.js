@@ -53,7 +53,6 @@ function v25ApplyDrawer(panel,id,collapsed,{persist=false,announce=false}={}){
     requestAnimationFrame(()=>{
       try{v24NormalizePlayArp?.(panel.id==='v6ArpPanel'?panel:null)}catch{}
       try{v22StartVisualizer?.(true)}catch{}
-      window.dispatchEvent(new Event('resize'));
     });
   }
 }
@@ -71,6 +70,15 @@ function v25ScanDrawers(){
 }
 function v25ScheduleDrawerScan(){if(v25DrawerScanQueued)return;v25DrawerScanQueued=true;requestAnimationFrame(v25ScanDrawers)}
 
+/* Any later V24 rebuild now consults V25's runtime state instead of storage. */
+if(typeof v24SyncModule==='function'){
+  v24SyncModule=function(panel,id){
+    if(!panel||!id)return;
+    const collapsed=V25_DRAWER_STATE.has(id)?V25_DRAWER_STATE.get(id):v25InitialState(panel,id);
+    v25ApplyDrawer(panel,id,collapsed);
+  };
+}
+
 /* V25 owns drawer activation before V24's older document handler can see it. */
 window.addEventListener('click',e=>{
   const button=e.target?.closest?.('#playScreen [data-v24-toggle]');if(!button)return;
@@ -80,12 +88,10 @@ window.addEventListener('click',e=>{
   v25ApplyDrawer(panel,id,!current,{persist:true,announce:true});
 },{capture:true});
 
-/* Space/Enter normally synthesize click; this covers embedded webviews too. */
+/* Real buttons already support keyboard activation; prevent duplicate synthetic toggles. */
 window.addEventListener('keydown',e=>{
-  const button=e.target?.closest?.('#playScreen [data-v24-toggle]');if(!button||!['Enter',' '].includes(e.key))return;
-  if(e.key===' ')e.preventDefault();
-  if(e.repeat)return;
-  button.click();
+  const button=e.target?.closest?.('#playScreen [data-v24-toggle]');if(!button||!['Enter',' '].includes(e.key)||e.repeat)return;
+  e.preventDefault();e.stopPropagation();button.click();
 },{capture:true});
 
 const v25PlayScreen=document.querySelector('#playScreen');
