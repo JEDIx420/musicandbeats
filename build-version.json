@@ -1,5 +1,5 @@
 {
-  "build": "v31",
-  "contains": "Phase 2 Web Audio look-ahead ARP scheduler, bounded oscillator pool and hot-path cleanup",
-  "publishedAt": "2026-08-24T12:40:00+05:30"
+  "build": "v32",
+  "contains": "UI drawer stability, ARP non-structural parameter updates, contextual help, Help Center and Explain Controls mode",
+  "publishedAt": "2026-08-24T14:32:00+05:30"
 }
