@@ -92,3 +92,16 @@
   window.addEventListener('orientationchange',()=>requestAnimationFrame(revive),{passive:true});
   requestAnimationFrame(revive);
 })();
+
+/* Performance diagnostics are completely opt-in and add zero runtime observers for normal users. */
+(()=>{
+  let enabled=false;
+  try{enabled=new URLSearchParams(location.search).get('debug')==='perf'}catch{}
+  if(!enabled)return;
+  if(!document.querySelector('link[data-perf-debug]')){
+    const link=document.createElement('link');link.rel='stylesheet';link.href='perf-debug.css';link.dataset.perfDebug='1';document.head.appendChild(link);
+  }
+  if(!document.querySelector('script[data-perf-debug]')){
+    const script=document.createElement('script');script.src='perf-debug.js';script.dataset.perfDebug='1';document.body.appendChild(script);
+  }
+})();

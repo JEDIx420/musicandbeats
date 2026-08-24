@@ -1,5 +1,5 @@
 {
-  "build": "v29",
-  "contains": "authoritative Play ARP interaction bridge with touch-safe knob and selector control",
-  "publishedAt": "2026-08-22T02:02:00+05:30"
+  "build": "v30",
+  "contains": "opt-in performance diagnostics and core-refactor baseline instrumentation",
+  "publishedAt": "2026-08-24T12:18:00+05:30"
 }
