@@ -74,8 +74,4 @@ window.addEventListener('pageshow',v28Schedule,{passive:true});
 window.addEventListener('orientationchange',v28Schedule,{passive:true});
 requestAnimationFrame(v28RestorePlayArp);
 
-/* V29 owns interaction after V28 has restored the live topology. */
-(function loadV29(){
-  if(!document.querySelector('link[data-v29]')){const l=document.createElement('link');l.rel='stylesheet';l.href='v29.css';l.dataset.v29='1';document.head.appendChild(l)}
-  if(!document.querySelector('script[data-v29]')){const s=document.createElement('script');s.src='v29.js';s.dataset.v29='1';document.body.appendChild(s)}
-})();
+/* V29 is now loaded deterministically by V9 after V28 completes. */
