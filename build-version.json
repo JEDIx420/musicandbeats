@@ -1,5 +1,5 @@
 {
-  "build": "v32",
-  "contains": "UI drawer stability, ARP non-structural parameter updates, contextual help, Help Center and Explain Controls mode",
-  "publishedAt": "2026-08-24T14:32:00+05:30"
+  "build": "v33",
+  "contains": "keyboard geometry repair and configurable Smart Keys displayed octaves",
+  "publishedAt": "2026-08-24T14:58:00+05:30"
 }
