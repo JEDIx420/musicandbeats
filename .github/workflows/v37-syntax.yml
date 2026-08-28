@@ -1,4 +1,4 @@
-name: V37 JavaScript syntax
+name: Current JavaScript syntax
 
 on:
   pull_request:
@@ -18,5 +18,6 @@ jobs:
           node --check v9.js
           node --check v36.js
           node --check v37.js
+          node --check v38.js
           node --check update-guard.js
           node --check sw.js
