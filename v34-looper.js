@@ -18,7 +18,7 @@
     bpm:100,bars:4,running:false,timer:null,nextStepTime:0,absoluteStep:0,
     pendingLane:null,pendingStartAbs:0,recordingLane:null,recordStartAbs:0,
     recordStartTime:0,recordEndAbs:0,recordStartStep:0,activeLane:'beats',
-    beatStyle:'Worship',energy:3,beatPattern:null,liveHolds:new Map(),countInSteps:0,playbackBus:null,beatBus:null
+    beatStyle:'Worship',energy:3,beatPattern:null,liveHolds:new Map(),countInSteps:0,playbackBus:null,beatBus:null,starting:false,captureGrace:null
   };
 
   Object.assign(SOUND_PRESETS,{
@@ -126,7 +126,7 @@
   }
 
   async function startTransport(withCountIn=false){
-    if(state.running)return;await ensureAudio();stopScheduler();stopSession();playBeatRunning=false;
+    if(state.running||state.starting)return;state.starting=true;try{await ensureAudio()}catch(e){state.starting=false;throw e}state.starting=false;stopScheduler();stopSession();playBeatRunning=false;
     state.playbackBus=ctx.createGain();state.playbackBus.gain.value=1;state.playbackBus.connect(synthBus);
     state.beatBus=ctx.createGain();state.beatBus.gain.value=1;state.beatBus.connect(drumBus);
     state.running=true;state.absoluteStep=0;state.nextStepTime=ctx.currentTime+.08;state.countInSteps=withCountIn?16:0;
@@ -200,15 +200,17 @@
   function finishRecording(cancelled=false,endTime=null){
     const lane=state.recordingLane;if(!lane)return;
     const boundary=endTime??ctx?.currentTime??0;
-    for(const [id,h] of [...state.liveHolds]){if(h.lane===lane){captureHold(h,boundary,true);h.voices.forEach(v=>v.stop());state.liveHolds.delete(id)}}
+    const meta={lane,startTime:state.recordStartTime,startStep:state.recordStartStep,boundary};
+    if(!cancelled&&ctx&&boundary>ctx.currentTime){state.captureGrace=meta;setTimeout(()=>{if(state.captureGrace===meta)state.captureGrace=null},Math.max(0,(boundary-ctx.currentTime)*1000)+24)}else state.captureGrace=null;
+    for(const h of state.liveHolds.values())if(h.lane===lane){h.captureMeta=h.captureMeta||meta;captureHold(h,boundary,true)}
     state.recordingLane=null;persist();renderAll();
     if(!cancelled)updateClock(1,`${titleLane(lane)} loop ready`,'Locked to the master grid');
   }
   function captureHold(h,endTime,forced=false){
-    if(!state.recordingLane||h.lane!==state.recordingLane)return;
-    const relStart=(h.startedAt-state.recordStartTime)/stepSeconds(),relEnd=(endTime-state.recordStartTime)/stepSeconds();
+    const meta=h.captureMeta||(state.recordingLane===h.lane?{lane:h.lane,startTime:state.recordStartTime,startStep:state.recordStartStep,boundary:Infinity}:null);if(!meta||meta.lane!==h.lane)return;
+    const cappedEnd=Math.min(endTime,meta.boundary??endTime),relStart=(h.startedAt-meta.startTime)/stepSeconds(),relEnd=(cappedEnd-meta.startTime)/stepSeconds();
     let a=Math.round(relStart),b=Math.round(relEnd);a=clamp(a,0,totalSteps()-1);b=Math.max(a+1,b);
-    const step=wrapStep(state.recordStartStep+a),durationSteps=Math.max(1,Math.min(totalSteps(),b-a));
+    const step=wrapStep(meta.startStep+a),durationSteps=Math.max(1,Math.min(totalSteps(),b-a));
     TRACKS[h.lane].events.push({step,durationSteps,midis:h.midis,preset:h.preset});
     if(!forced)persist();
   }
@@ -297,7 +299,7 @@
   function bindPads(el,lane,resolver){
     const end=(e,b)=>{const h=state.liveHolds.get(e.pointerId);if(!h)return;h.voices.forEach(v=>v.stop());captureHold(h,ctx?.currentTime||h.startedAt+.1);state.liveHolds.delete(e.pointerId);b?.classList.remove('active')};
     el.querySelectorAll('.v34-performance-pad').forEach(b=>{
-      b.addEventListener('pointerdown',e=>{e.preventDefault();primeAudio();const r=resolver(b),voices=r.midis.map((m,i)=>startVoice(m,r.preset,.78-Math.min(i*.04,.2)));state.liveHolds.set(e.pointerId,{lane,midis:r.midis,preset:r.preset,voices,startedAt:ctx.currentTime});b.classList.add('active');try{b.setPointerCapture(e.pointerId)}catch{}});
+      b.addEventListener('pointerdown',e=>{e.preventDefault();primeAudio();const r=resolver(b),voices=r.midis.map((m,i)=>startVoice(m,r.preset,.78-Math.min(i*.04,.2))),now=ctx.currentTime,grace=state.captureGrace&&state.captureGrace.lane===lane&&now<=state.captureGrace.boundary?state.captureGrace:null,captureMeta=state.recordingLane===lane?{lane,startTime:state.recordStartTime,startStep:state.recordStartStep,boundary:state.recordStartTime+loopSeconds()}:grace;state.liveHolds.set(e.pointerId,{lane,midis:r.midis,preset:r.preset,voices,startedAt:now,captureMeta});b.classList.add('active');try{b.setPointerCapture(e.pointerId)}catch{}});
       b.addEventListener('pointerup',e=>end(e,b));b.addEventListener('pointercancel',e=>end(e,b));b.addEventListener('lostpointercapture',e=>end(e,b));
     });
   }
