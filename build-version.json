@@ -1,5 +1,5 @@
 {
-  "build": "v36",
-  "contains": "single modern Projects flow, legacy recorder UI lockout, ARP removal, and Keys/Bass latch mode",
-  "publishedAt": "2026-08-28T22:55:00+05:30"
+  "build": "v37",
+  "contains": "exclusive Keys/Bass latch, live Lead lane with Lead Focus, four-channel mixer, and project mix recall",
+  "publishedAt": "2026-08-28T23:35:00+05:30"
 }
