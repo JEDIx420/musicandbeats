@@ -19,5 +19,6 @@ jobs:
           node --check v36.js
           node --check v37.js
           node --check v38.js
+          node --check v38-stability.js
           node --check update-guard.js
           node --check sw.js
