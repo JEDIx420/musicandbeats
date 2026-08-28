@@ -1,5 +1,5 @@
 {
-  "build": "v35",
-  "contains": "quick session setup, synced metronome toggle, preset arpeggiator/styles, and named project save/load",
-  "publishedAt": "2026-08-28T22:29:00+05:30"
+  "build": "v36",
+  "contains": "single modern Projects flow, legacy recorder UI lockout, ARP removal, and Keys/Bass latch mode",
+  "publishedAt": "2026-08-28T22:55:00+05:30"
 }
