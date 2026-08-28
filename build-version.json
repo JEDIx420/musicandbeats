@@ -1,5 +1,5 @@
 {
-  "build": "v33",
-  "contains": "keyboard geometry repair and configurable Smart Keys displayed octaves",
-  "publishedAt": "2026-08-24T14:58:00+05:30"
+  "build": "v34",
+  "contains": "mobile-first backing looper, Web Audio clock event sync, simplified Beats/Keys/Bass flow, and Indian instrument voices",
+  "publishedAt": "2026-08-28T19:00:00+05:30"
 }
