@@ -1,1 +1,2 @@
-placeholder
+/* Music & Beats V35 — loaded after v35-core, v35-ui and v35-arp. */
+(()=>{if(window.MB_V35){window.MB_V35.version='v35';document.documentElement.classList.add('mb-v35');document.body.classList.add('mb-v35')}})();
