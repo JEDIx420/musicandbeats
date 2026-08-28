@@ -18,7 +18,7 @@
     bpm:100,bars:4,running:false,timer:null,nextStepTime:0,absoluteStep:0,
     pendingLane:null,pendingStartAbs:0,recordingLane:null,recordStartAbs:0,
     recordStartTime:0,recordEndAbs:0,recordStartStep:0,activeLane:'beats',
-    beatStyle:'Worship',energy:3,beatPattern:null,liveHolds:new Map(),countInSteps:0
+    beatStyle:'Worship',energy:3,beatPattern:null,liveHolds:new Map(),countInSteps:0,playbackBus:null,beatBus:null
   };
 
   Object.assign(SOUND_PRESETS,{
@@ -116,7 +116,7 @@
 
   function setBpm(v){
     const was=state.running;state.bpm=clamp(v,40,220);document.querySelector('#v34Bpm').value=state.bpm;persist();
-    if(was){stopTransport({keepPending:true});startTransport(false)}renderTransport();
+    if(was){stopTransport();startTransport(false)}renderTransport();
   }
   function setBars(v){
     if(![1,2,4,8].includes(v))return;
@@ -127,6 +127,8 @@
 
   async function startTransport(withCountIn=false){
     if(state.running)return;await ensureAudio();stopScheduler();stopSession();playBeatRunning=false;
+    state.playbackBus=ctx.createGain();state.playbackBus.gain.value=1;state.playbackBus.connect(synthBus);
+    state.beatBus=ctx.createGain();state.beatBus.gain.value=1;state.beatBus.connect(drumBus);
     state.running=true;state.absoluteStep=0;state.nextStepTime=ctx.currentTime+.08;state.countInSteps=withCountIn?16:0;
     renderTransport();
     state.timer=setInterval(schedulerTick,25);schedulerTick();
@@ -135,6 +137,8 @@
     if(state.timer)clearInterval(state.timer);state.timer=null;state.running=false;state.countInSteps=0;
     if(!keepPending)state.pendingLane=null;
     if(state.recordingLane)finishRecording(true);
+    try{if(state.playbackBus){state.playbackBus.gain.setValueAtTime(0,ctx.currentTime);state.playbackBus.disconnect()}}catch{}state.playbackBus=null;
+    try{if(state.beatBus){state.beatBus.gain.setValueAtTime(0,ctx.currentTime);state.beatBus.disconnect()}}catch{}state.beatBus=null;
     state.absoluteStep=0;panic();renderTransport();updateClock(0,'Ready','Tap Play, or record a Keys/Bass loop.');
   }
   function schedulerTick(){
@@ -161,7 +165,7 @@
   }
   function scheduleUi(t,fn){setTimeout(fn,Math.max(0,(t-ctx.currentTime)*1000))}
   function scheduleStep(step,t){
-    if(!TRACKS.beats.muted&&state.beatPattern){const s=step%16;if(state.beatPattern.kick[s])kick(t);if(state.beatPattern.snare[s])snare(t);if(state.beatPattern.hat[s])hat(t)}
+    if(!TRACKS.beats.muted&&state.beatPattern){const s=step%16;if(state.beatPattern.kick[s])kick(t,state.beatBus||drumBus);if(state.beatPattern.snare[s])snare(t,state.beatBus||drumBus);if(state.beatPattern.hat[s])hat(t,state.beatBus||drumBus)}
     ['keys','bass'].forEach(lane=>{
       if(TRACKS[lane].muted||state.recordingLane===lane)return;
       TRACKS[lane].events.forEach(e=>{if(wrapStep(e.step)===step)v34ScheduleEvent(e,t)});
@@ -173,10 +177,11 @@
   }
   function v34ScheduleVoice(m,p,v,start,dur){
     const s=SOUND_PRESETS[p]||SOUND_PRESETS['Studio Grand'],g=ctx.createGain(),f=ctx.createBiquadFilter();f.type='lowpass';f.frequency.value=s.filter;f.Q.value=s.q||.3;
-    const attack=Math.max(.003,s.attack||.004),decay=Math.max(.02,s.decay||.2),rel=Math.min(Math.max(.05,s.release||.3),Math.max(.08,dur*.55));
-    g.gain.setValueAtTime(.0001,start);g.gain.exponentialRampToValueAtTime(Math.max(.001,s.gain*v),start+attack);g.gain.exponentialRampToValueAtTime(Math.max(.001,s.gain*s.sustain*v),start+attack+decay);
-    const releaseAt=Math.max(start+attack+decay+.01,start+dur-rel);g.gain.setValueAtTime(Math.max(.001,s.gain*s.sustain*v),releaseAt);g.gain.exponentialRampToValueAtTime(.0001,start+dur);
-    f.connect(g).connect(synthBus);s.oscs.forEach(([type,semi,lev])=>{const o=ctx.createOscillator(),og=ctx.createGain();o.type=type;o.frequency.setValueAtTime(midiToFreq(m+semi),start);og.gain.value=lev;o.connect(og).connect(f);o.start(start);o.stop(start+dur+.03)});
+    const attack=Math.min(Math.max(.003,s.attack||.004),dur*.22),decay=Math.min(Math.max(.015,s.decay||.2),dur*.28),rel=Math.min(Math.max(.04,s.release||.3),dur*.45);
+    const attackEnd=start+attack,decayEnd=Math.min(start+dur*.58,attackEnd+decay),releaseAt=Math.max(decayEnd,start+dur-rel);
+    g.gain.setValueAtTime(.0001,start);g.gain.exponentialRampToValueAtTime(Math.max(.001,s.gain*v),attackEnd);g.gain.exponentialRampToValueAtTime(Math.max(.001,s.gain*s.sustain*v),decayEnd);
+    g.gain.setValueAtTime(Math.max(.001,s.gain*s.sustain*v),releaseAt);g.gain.exponentialRampToValueAtTime(.0001,start+dur);
+    f.connect(g).connect(state.playbackBus||synthBus);s.oscs.forEach(([type,semi,lev])=>{const o=ctx.createOscillator(),og=ctx.createGain();o.type=type;o.frequency.setValueAtTime(midiToFreq(m+semi),start);og.gain.value=lev;o.connect(og).connect(f);o.start(start);o.stop(start+dur+.03)});
   }
 
   function armLane(lane){
