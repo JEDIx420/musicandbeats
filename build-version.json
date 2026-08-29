@@ -1,5 +1,5 @@
 {
-  "build": "v38",
-  "contains": "chromatic piano/keytar Lead, 1-3 displayed octaves, GeneralUser GS sample voices, deep Web Audio effects rack, and project recall",
-  "publishedAt": "2026-08-28T23:58:00+05:30"
+  "build": "v39",
+  "contains": "Keys/Bass transpose, editable extended chords, Lead glide, landscape-aware Pitch/Mod performance strips, and expanded Western GeneralUser GS voices",
+  "publishedAt": "2026-08-29T17:30:00+05:30"
 }
