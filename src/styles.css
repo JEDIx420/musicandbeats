@@ -1,25 +1,18 @@
 /**
- * Music & Beats — Canonical Design System & Stylesheet (V39)
+ * Music & Beats — Consolidated Design System & Stylesheet (Play-First)
  *
- * Consolidates the complete 34-file legacy CSS cascade into a single, cohesive,
- * semantic design system without any versioned class dependencies (.v34-, .v35-, etc.).
- *
- * Structure:
- * 1. Design Tokens & Root Variables
- * 2. Reset & Base Typography
- * 3. Application Shell & Top Navigation
- * 4. Shared Controls (Buttons, Inputs, Selects, Sliders, Badges)
- * 5. Play Performance Workspace (Smart Keys, Bass, Guitar, Lead)
- * 6. Pitch Bend & Modulation Performance Strips
- * 7. Modular Drawers (Arp Lab, Groove Box, Performance Rack)
- * 8. Live Looper & Multi-Track Session (Timeline, Progress Ring, Track Strips)
- * 9. Help Center & Accessible Dialog Modals
- * 10. Motion & Animation (with prefers-reduced-motion)
- * 11. Responsive Breakpoints & Safe Areas (Mobile, Tablet, Desktop)
+ * Implements a dark, polished, tablet-friendly, musical UI:
+ * - Master Jam Transport (Start Audio, Beat Transport, Tempo BPM, Groove Styles & Energy)
+ * - 16-Step Groove Box Sequencer Grid (Kick, Snare, Hi-Hat)
+ * - 4 Instrument Performance Stages (Smart Keys with 7 editable chord cards, Bass pads, Guitar rig, Lead piano keyboard)
+ * - True white & black key piano geometry with Pitch & Mod performance strips
+ * - Secondary Drawer Bar (Arp Lab, Tone & FX Performance Rack)
+ * - Accessible Help / Explain Modals
+ * - Responsive breakpoints for Mobile, Tablet, and Desktop
  */
 
 /* ==========================================================================
-   1. DESIGN TOKENS & ROOT VARIABLES
+   1. DESIGN TOKENS & SYSTEM VARIABLES
    ========================================================================== */
 
 :root {
@@ -30,21 +23,22 @@
   --mb-surface-1: #101218;
   --mb-surface-2: #171a22;
   --mb-surface-3: #1f232d;
-  --mb-surface-glass: rgba(16, 18, 24, 0.85);
+  --mb-surface-glass: rgba(16, 18, 24, 0.88);
 
   /* Lines & Borders */
   --mb-line: rgba(255, 255, 255, 0.08);
   --mb-line-strong: rgba(255, 255, 255, 0.16);
+  --mb-line-accent: rgba(139, 124, 255, 0.35);
 
   /* Text & Typography */
   --mb-text-primary: #f7f8fb;
   --mb-text-muted: #9299a8;
-  --mb-text-faint: rgba(255, 255, 255, 0.40);
+  --mb-text-faint: rgba(255, 255, 255, 0.45);
 
-  /* Brand & Accent Palettes */
+  /* Brand Accents */
   --mb-accent: #8b7cff;
   --mb-accent-hover: #9c8fff;
-  --mb-accent-glow: rgba(139, 124, 255, 0.22);
+  --mb-accent-glow: rgba(139, 124, 255, 0.25);
   --mb-accent-cyan: #5fb7ff;
   --mb-accent-pink: #f47eac;
 
@@ -53,17 +47,17 @@
   --mb-warning: #f5b85c;
   --mb-danger: #ff646e;
 
-  /* Spacing & Radii */
+  /* Radii */
   --mb-radius-sm: 8px;
-  --mb-radius-md: 12px;
-  --mb-radius-lg: 18px;
+  --mb-radius-md: 14px;
+  --mb-radius-lg: 20px;
   --mb-radius-full: 9999px;
 
   /* Shadows */
-  --mb-shadow-card: 0 16px 48px rgba(0, 0, 0, 0.42);
-  --mb-shadow-glow: 0 0 20px rgba(139, 124, 255, 0.35);
+  --mb-shadow-card: 0 18px 48px rgba(0, 0, 0, 0.45);
+  --mb-shadow-glow: 0 0 24px rgba(139, 124, 255, 0.32);
 
-  /* Device Safe Areas */
+  /* Safe Areas */
   --mb-safe-top: env(safe-area-inset-top, 0px);
   --mb-safe-bottom: env(safe-area-inset-bottom, 0px);
   --mb-safe-left: env(safe-area-inset-left, 0px);
@@ -89,8 +83,8 @@ body {
   margin: 0;
   min-height: 100vh;
   background:
-    radial-gradient(circle at 72% -8%, rgba(139, 124, 255, 0.14), transparent 28rem),
-    radial-gradient(circle at 5% 50%, rgba(95, 183, 255, 0.07), transparent 30rem),
+    radial-gradient(circle at 75% -10%, rgba(139, 124, 255, 0.16), transparent 30rem),
+    radial-gradient(circle at 5% 45%, rgba(95, 183, 255, 0.08), transparent 32rem),
     var(--mb-bg);
   padding-bottom: var(--mb-safe-bottom);
   overflow-x: hidden;
@@ -124,105 +118,16 @@ button:focus-visible, input:focus-visible, select:focus-visible {
   outline-offset: 2px;
 }
 
-/* ==========================================================================
-   3. APPLICATION SHELL & TOP NAVIGATION
-   ========================================================================== */
-
-.mb-app-shell {
-  max-width: 1400px;
-  margin: 0 auto;
-  padding: calc(10px + var(--mb-safe-top)) 16px calc(24px + var(--mb-safe-bottom));
-}
-
-.mb-navbar {
-  height: 60px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 0 4px;
-}
-
-.mb-brand-btn {
-  background: transparent;
-  border: none;
-  font-size: 18px;
-  letter-spacing: -0.02em;
-  color: var(--mb-text-primary);
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 10px;
-}
-
-.mb-nav-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.mb-nav-btn {
-  height: 38px;
-  padding: 0 14px;
-  font-size: 13px;
-  font-weight: 600;
-  border-radius: var(--mb-radius-full);
-}
-
-.mb-nav-btn.active {
-  background: var(--mb-accent);
-  border-color: var(--mb-accent);
-  color: #fff;
-  box-shadow: 0 0 14px var(--mb-accent-glow);
-}
-
-.mb-btn-panic {
-  background: rgba(255, 100, 110, 0.15);
-  border-color: rgba(255, 100, 110, 0.35);
-  color: var(--mb-danger);
-}
-
-.mb-btn-explain.active {
-  background: var(--mb-warning);
-  border-color: var(--mb-warning);
-  color: #000;
-}
-
-/* ==========================================================================
-   4. SHARED CONTROLS (Selects, Sliders, Buttons)
-   ========================================================================== */
-
-.mb-toolbar {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-  padding: 12px 16px;
-  background: var(--mb-surface-1);
-  border-bottom: 1px solid var(--mb-line);
-}
-
-.mb-toolbar label {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  font-size: 10px;
-  font-weight: 700;
-  color: var(--mb-text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
-
 select {
   height: 38px;
-  padding: 0 30px 0 12px;
+  padding: 0 28px 0 12px;
   background: var(--mb-surface-2);
   border: 1px solid var(--mb-line);
   border-radius: var(--mb-radius-sm);
   appearance: none;
   background-image: linear-gradient(45deg, transparent 50%, #818899 50%),
                     linear-gradient(135deg, #818899 50%, transparent 50%);
-  background-position: calc(100% - 15px) 16px, calc(100% - 10px) 16px;
+  background-position: calc(100% - 14px) 16px, calc(100% - 9px) 16px;
   background-size: 5px 5px, 5px 5px;
   background-repeat: no-repeat;
 }
@@ -232,37 +137,345 @@ input[type="range"] {
 }
 
 /* ==========================================================================
-   5. PLAY WORKSPACE & INSTRUMENT LANES
+   3. APP SHELL & POLISHED TOPBAR
    ========================================================================== */
 
-.mb-play-shell {
+.mb-app-shell {
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: calc(12px + var(--mb-safe-top)) 18px calc(24px + var(--mb-safe-bottom));
+}
+
+.mb-navbar {
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 0 4px 10px;
+  border-bottom: 1px solid var(--mb-line);
+  margin-bottom: 14px;
+}
+
+.mb-brand-block {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.mb-brand-mark {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 3px;
+  border: 1px solid var(--mb-line-strong);
+  border-radius: 12px;
+  background: linear-gradient(145deg, #262140, #101217);
+  padding: 7px;
+}
+
+.mb-brand-mark i {
+  display: block;
+  width: 3px;
+  border-radius: 3px;
+  background: linear-gradient(#c8c0ff, #7a68ff);
+}
+.mb-brand-mark i:nth-child(1) { height: 10px; }
+.mb-brand-mark i:nth-child(2) { height: 18px; }
+.mb-brand-mark i:nth-child(3) { height: 13px; }
+.mb-brand-mark i:nth-child(4) { height: 21px; }
+
+.mb-brand-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.mb-brand-kicker {
+  font-size: 8px;
+  letter-spacing: 0.16em;
+  font-weight: 800;
+  color: var(--mb-accent);
+}
+
+.mb-brand-name {
+  font-size: 18px;
+  letter-spacing: -0.02em;
+}
+
+.mb-nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.mb-audio-pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: var(--mb-radius-full);
+  border: 1px solid var(--mb-line);
+  background: var(--mb-surface-1);
+  font-size: 11px;
+  color: var(--mb-text-muted);
+}
+
+.mb-audio-pill span {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--mb-success);
+  box-shadow: 0 0 8px var(--mb-success);
+}
+
+.mb-nav-btn {
+  height: 36px;
+  padding: 0 14px;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: var(--mb-radius-full);
+}
+
+.mb-btn-panic {
+  background: rgba(255, 100, 110, 0.14);
+  border-color: rgba(255, 100, 110, 0.35);
+  color: var(--mb-danger);
+}
+
+.mb-btn-explain.active {
+  background: var(--mb-warning);
+  color: #000;
+  border-color: var(--mb-warning);
+}
+
+/* ==========================================================================
+   4. PLAY WORKSPACE & MASTER TRANSPORT
+   ========================================================================== */
+
+.mb-play-workspace {
   display: flex;
   flex-direction: column;
   gap: 14px;
-  margin-top: 10px;
 }
+
+.mb-master-transport {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 18px;
+  background: var(--mb-surface-1);
+  border: 1px solid var(--mb-line);
+  border-radius: var(--mb-radius-lg);
+  box-shadow: var(--mb-shadow-card);
+  flex-wrap: wrap;
+}
+
+.mb-transport-left, .mb-transport-center, .mb-transport-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.mb-btn-audio-start {
+  height: 42px;
+  padding: 0 14px;
+  background: rgba(139, 124, 255, 0.12);
+  border-color: var(--mb-line-accent);
+  color: var(--mb-text-primary);
+  font-weight: 700;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.mb-btn-audio-start.ready {
+  color: var(--mb-success);
+  border-color: rgba(88, 213, 154, 0.35);
+}
+
+.mb-btn-beat-play {
+  height: 42px;
+  padding: 0 18px;
+  font-weight: 700;
+  font-size: 13px;
+  border-radius: var(--mb-radius-full);
+  background: var(--mb-surface-2);
+}
+
+.mb-btn-beat-play.active {
+  background: var(--mb-accent);
+  border-color: var(--mb-accent);
+  color: #fff;
+  box-shadow: 0 0 16px var(--mb-accent-glow);
+}
+
+.mb-tempo-box {
+  display: flex;
+  align-items: center;
+  background: var(--mb-surface-2);
+  border: 1px solid var(--mb-line);
+  border-radius: var(--mb-radius-md);
+  overflow: hidden;
+}
+
+.mb-bpm-btn {
+  width: 34px;
+  height: 38px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  font-size: 16px;
+}
+
+.mb-tempo-box label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 6px;
+  border-inline: 1px solid var(--mb-line);
+}
+
+.mb-tempo-box small {
+  font-size: 9px;
+  font-weight: 800;
+  color: var(--mb-text-muted);
+}
+
+.mb-bpm-input {
+  width: 48px;
+  border: 0;
+  background: transparent;
+  text-align: center;
+  font-weight: 800;
+  font-size: 13px;
+}
+
+.mb-transport-field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.mb-transport-field small {
+  font-size: 9px;
+  font-weight: 800;
+  color: var(--mb-text-muted);
+  letter-spacing: 0.08em;
+}
+
+.mb-btn-variation, .mb-btn-toggle-groove {
+  height: 38px;
+  padding: 0 12px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.mb-btn-toggle-groove.active {
+  background: var(--mb-accent-glow);
+  border-color: var(--mb-accent);
+  color: var(--mb-accent);
+}
+
+/* ==========================================================================
+   5. GROOVE BOX 16-STEP SEQUENCER
+   ========================================================================== */
+
+.mb-beat-sequencer-card {
+  display: none;
+  padding: 16px;
+  background: var(--mb-surface-1);
+  border: 1px solid var(--mb-line);
+  border-radius: var(--mb-radius-lg);
+  box-shadow: var(--mb-shadow-card);
+}
+
+.mb-beat-sequencer-card.expanded {
+  display: block;
+}
+
+.mb-seq-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.mb-seq-row {
+  display: grid;
+  grid-template-columns: 60px 1fr;
+  align-items: center;
+  gap: 12px;
+}
+
+.mb-seq-inst-label {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: var(--mb-text-muted);
+}
+
+.mb-seq-steps {
+  display: grid;
+  grid-template-columns: repeat(16, 1fr);
+  gap: 4px;
+}
+
+.mb-seq-step {
+  aspect-ratio: 1;
+  min-height: 28px;
+  border-radius: 6px;
+  border: 1px solid var(--mb-line);
+  background: var(--mb-surface-2);
+  padding: 0;
+  touch-action: none;
+}
+
+.mb-seq-step.on {
+  background: var(--mb-accent);
+  border-color: var(--mb-accent);
+  box-shadow: 0 0 10px var(--mb-accent-glow);
+}
+
+.mb-seq-step.current {
+  outline: 2px solid #fff;
+  outline-offset: 1px;
+}
+
+/* Group 4 beats visually */
+.mb-seq-step:nth-child(4n + 1) {
+  border-left: 2px solid var(--mb-line-strong);
+}
+
+/* ==========================================================================
+   6. INSTRUMENT PERFORMANCE LANES & TABS
+   ========================================================================== */
 
 .mb-instrument-tabs {
   display: flex;
-  gap: 8px;
+  gap: 10px;
 }
 
 .mb-tab-btn {
   flex: 1;
-  height: 44px;
+  height: 48px;
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 700;
   border-radius: var(--mb-radius-md);
   color: var(--mb-text-muted);
+  background: var(--mb-surface-1);
 }
 
 .mb-tab-btn.active {
-  background: var(--mb-surface-3);
+  background: var(--mb-surface-2);
   border-color: var(--mb-accent);
   color: var(--mb-text-primary);
+  box-shadow: 0 0 16px var(--mb-accent-glow);
 }
 
-.mb-lane-workspace {
+.mb-lane-stage {
   background: var(--mb-surface-1);
   border: 1px solid var(--mb-line);
   border-radius: var(--mb-radius-lg);
@@ -270,44 +483,102 @@ input[type="range"] {
   box-shadow: var(--mb-shadow-card);
 }
 
+.mb-lane-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  background: rgba(255, 255, 255, 0.02);
+  border-bottom: 1px solid var(--mb-line);
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.mb-lane-toolbar-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.mb-lane-toolbar label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 9px;
+  font-weight: 800;
+  color: var(--mb-text-muted);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.mb-btn-latch, .mb-btn-bass-latch {
+  height: 38px;
+  padding: 0 14px;
+  font-weight: 700;
+  font-size: 12px;
+}
+
+.mb-btn-latch.active, .mb-btn-bass-latch.active {
+  background: var(--mb-accent-cyan);
+  border-color: var(--mb-accent-cyan);
+  color: #000;
+  box-shadow: 0 0 14px rgba(95, 183, 255, 0.35);
+}
+
 /* --- Smart Keys --- */
 .mb-chord-pad-grid {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  gap: 8px;
-  padding: 16px;
+  gap: 10px;
+  padding: 18px;
+}
+
+.mb-pad-card {
+  display: flex;
+  flex-direction: column;
+  background: var(--mb-surface-2);
+  border: 1px solid var(--mb-line);
+  border-radius: var(--mb-radius-md);
+  overflow: hidden;
+  position: relative;
+  transition: transform 0.08s ease, border-color 0.15s ease;
+}
+
+.mb-pad-card.latched {
+  border-color: var(--mb-accent-cyan);
+  box-shadow: 0 0 14px rgba(95, 183, 255, 0.25);
+  background: rgba(95, 183, 255, 0.12);
 }
 
 .mb-chord-pad {
-  min-height: 80px;
-  padding: 10px;
-  text-align: left;
+  min-height: 96px;
+  padding: 12px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  border-radius: var(--mb-radius-md);
-  background: var(--mb-surface-2);
+  text-align: left;
   touch-action: none;
 }
 
-.mb-chord-pad.latched {
-  border-color: var(--mb-accent-cyan);
-  background: rgba(95, 183, 255, 0.15);
-}
-
-.mb-chord-pad:active {
-  background: var(--mb-accent-glow);
+.mb-pad-card:active {
+  transform: scale(0.97);
   border-color: var(--mb-accent);
 }
 
 .mb-pad-num {
   font-size: 10px;
+  font-weight: 800;
   opacity: 0.55;
 }
 
 .mb-pad-label {
-  font-size: 16px;
-  font-weight: 700;
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
 }
 
 .mb-pad-notes {
@@ -315,49 +586,64 @@ input[type="range"] {
   color: var(--mb-text-muted);
 }
 
-.mb-btn-latch.active, .mb-btn-bass-latch.active {
-  background: var(--mb-accent-cyan);
-  color: #000;
-  border-color: var(--mb-accent-cyan);
+.mb-btn-edit-chord {
+  height: 24px;
+  border: 0;
+  border-top: 1px solid var(--mb-line);
+  border-radius: 0;
+  background: rgba(255, 255, 255, 0.03);
+  font-size: 11px;
 }
 
 /* --- Bass --- */
 .mb-bass-pad-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 10px;
-  padding: 18px;
+  gap: 14px;
+  padding: 22px;
 }
 
 .mb-bass-pad {
-  min-height: 90px;
-  text-align: center;
+  min-height: 110px;
   display: flex;
   flex-direction: column;
+  align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 8px;
   touch-action: none;
+  background: var(--mb-surface-2);
 }
 
 .mb-bass-pad.latched {
   border-color: var(--mb-accent);
   background: var(--mb-accent-glow);
+  box-shadow: 0 0 18px var(--mb-accent-glow);
 }
 
-/* --- Guitar --- */
+.mb-bass-pad-name {
+  font-size: 22px;
+  font-weight: 800;
+}
+
+.mb-bass-pad-label {
+  font-size: 11px;
+  color: var(--mb-text-muted);
+}
+
+/* --- Guitar Rig --- */
 .mb-guitar-controls {
-  padding: 18px;
+  padding: 24px;
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 20px;
 }
 
 .mb-guitar-meter-badge {
-  padding: 4px 10px;
+  padding: 5px 12px;
   border-radius: var(--mb-radius-full);
   background: var(--mb-surface-3);
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 800;
 }
 
 .mb-guitar-meter-badge.live {
@@ -365,12 +651,12 @@ input[type="range"] {
   color: #000;
 }
 
-/* --- Lead Keyboard --- */
+/* --- Lead Chromatic Piano Keyboard --- */
 .mb-lead-perf-shell {
   display: grid;
-  grid-template-columns: 86px 1fr;
-  gap: 12px;
-  padding: 16px;
+  grid-template-columns: 88px 1fr;
+  gap: 14px;
+  padding: 18px;
 }
 
 .mb-lead-strips {
@@ -380,7 +666,7 @@ input[type="range"] {
 }
 
 .mb-perf-strip {
-  height: 200px;
+  height: 220px;
   border-radius: var(--mb-radius-full);
   border: 1px solid var(--mb-line);
   background: var(--mb-surface-2);
@@ -395,20 +681,20 @@ input[type="range"] {
 .mb-perf-strip span {
   font-size: 9px;
   font-weight: 800;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.12em;
   color: var(--mb-text-faint);
   writing-mode: vertical-rl;
-  text-orientation: mixed;
 }
 
 .mb-lead-keys-stage {
-  height: 200px;
-  display: flex;
+  height: 220px;
   position: relative;
+  display: flex;
   background: #050608;
   border-radius: var(--mb-radius-md);
   overflow: hidden;
   border: 1px solid var(--mb-line);
+  touch-action: none;
 }
 
 .mb-key.white {
@@ -418,39 +704,59 @@ input[type="range"] {
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  padding-bottom: 8px;
+  padding-bottom: 10px;
   color: #333;
-  font-size: 10px;
-  font-weight: 700;
+  font-size: 11px;
+  font-weight: 800;
   touch-action: none;
+  user-select: none;
 }
 
-.mb-key.white:active, .mb-key.white.active {
+.mb-key.white.active, .mb-key.white:active {
   background: var(--mb-accent);
   color: #fff;
 }
 
+.mb-key.black {
+  position: absolute;
+  top: 0;
+  height: 60%;
+  transform: translateX(-50%);
+  background: linear-gradient(#1c1e24, #050608);
+  border: 1px solid #000;
+  border-radius: 0 0 6px 6px;
+  z-index: 5;
+  touch-action: none;
+  box-shadow: 0 5px 12px rgba(0, 0, 0, 0.6);
+}
+
+.mb-key.black.active, .mb-key.black:active {
+  background: linear-gradient(var(--mb-accent), #4537a8);
+}
+
 /* ==========================================================================
-   6. MODULAR DRAWERS (Arp Lab, Groove Box, Performance Rack)
+   7. SECONDARY PERFORMANCE DRAWERS
    ========================================================================== */
 
-.mb-drawer-bar {
+.mb-tools-bar {
   display: flex;
-  gap: 8px;
+  gap: 10px;
 }
 
-.mb-drawer-btn {
+.mb-tool-btn {
   flex: 1;
-  height: 40px;
+  height: 42px;
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 700;
   color: var(--mb-text-muted);
+  background: var(--mb-surface-1);
 }
 
-.mb-drawer-btn.active {
+.mb-tool-btn.active {
   background: var(--mb-surface-2);
   color: var(--mb-accent);
   border-color: var(--mb-accent);
+  box-shadow: 0 0 14px var(--mb-accent-glow);
 }
 
 .mb-drawer-container {
@@ -464,141 +770,60 @@ input[type="range"] {
   display: none;
 }
 
-.mb-drawer-arp, .mb-drawer-groove, .mb-drawer-rack {
-  padding: 16px;
+.mb-drawer-panel {
+  padding: 18px;
+}
+
+.mb-drawer-header {
+  margin-bottom: 14px;
+  font-size: 13px;
+  color: var(--mb-text-primary);
+}
+
+.mb-drawer-body {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 18px;
   flex-wrap: wrap;
 }
 
-/* ==========================================================================
-   7. LIVE LOOPER & MULTI-TRACK SESSION
-   ========================================================================== */
-
-.mb-record-shell {
+.mb-drawer-body label {
   display: flex;
   flex-direction: column;
-  gap: 14px;
-}
-
-.mb-record-transport {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 14px 18px;
-  background: var(--mb-surface-1);
-  border: 1px solid var(--mb-line);
-  border-radius: var(--mb-radius-lg);
-}
-
-.mb-btn-record-play {
-  height: 46px;
-  padding: 0 20px;
-  font-weight: 700;
-  border-radius: var(--mb-radius-full);
-}
-
-.mb-btn-record-play.playing {
-  background: var(--mb-accent);
-  color: #fff;
-}
-
-.mb-tempo-controls {
-  display: flex;
-  align-items: center;
   gap: 4px;
-  background: var(--mb-surface-2);
-  border-radius: var(--mb-radius-md);
-  padding: 2px 8px;
-  border: 1px solid var(--mb-line);
-}
-
-.mb-timeline-display {
-  padding: 16px;
-  background: var(--mb-surface-1);
-  border: 1px solid var(--mb-line);
-  border-radius: var(--mb-radius-lg);
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-
-.mb-clock-badge {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  min-width: 60px;
-}
-
-.mb-step-indicator {
-  font-size: 20px;
+  font-size: 9px;
   font-weight: 800;
-  font-variant-numeric: tabular-nums;
+  color: var(--mb-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
 }
 
-.mb-progress-bar-track {
-  flex: 1;
-  height: 10px;
-  background: var(--mb-surface-2);
-  border-radius: var(--mb-radius-full);
-  overflow: hidden;
-}
-
-.mb-progress-bar-fill {
-  height: 100%;
-  background: var(--mb-accent);
-  transition: width 0.05s linear;
-}
-
-.mb-tracks-container {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.mb-track-strip {
-  display: flex;
+.mb-toggle-label {
+  flex-direction: row !important;
   align-items: center;
-  gap: 12px;
-  padding: 12px 18px;
-  background: var(--mb-surface-1);
-  border: 1px solid var(--mb-line);
-  border-radius: var(--mb-radius-md);
-}
-
-.mb-track-strip.muted {
-  opacity: 0.55;
-}
-
-.mb-track-strip.recording {
-  border-color: var(--mb-danger);
-  background: rgba(255, 100, 110, 0.1);
-}
-
-.mb-track-name {
-  font-weight: 700;
-  min-width: 90px;
+  gap: 8px !important;
+  font-size: 12px !important;
+  text-transform: none !important;
 }
 
 /* ==========================================================================
-   8. HELP & ACCESSIBLE DIALOG MODALS
+   8. CHORD EDITOR & HELP MODALS
    ========================================================================== */
 
-.mb-help-modal-backdrop {
+.mb-chord-editor-backdrop, .mb-help-modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.72);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   display: grid;
   place-items: center;
   z-index: 100;
   padding: 16px;
 }
 
-.mb-help-card {
-  width: min(500px, 100%);
+.mb-chord-editor-card, .mb-help-card {
+  width: min(480px, 100%);
   background: var(--mb-surface-1);
   border: 1px solid var(--mb-line-strong);
   border-radius: var(--mb-radius-lg);
@@ -606,17 +831,55 @@ input[type="range"] {
   box-shadow: var(--mb-shadow-card);
 }
 
-.mb-help-header {
+.mb-chord-editor-header, .mb-help-header {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 16px;
+  align-items: center;
+  margin-bottom: 18px;
+}
+
+.mb-chord-editor-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.mb-chord-editor-fields label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--mb-text-muted);
+}
+
+.mb-chord-editor-fields input {
+  height: 40px;
+  padding: 0 12px;
+  background: var(--mb-surface-2);
+  border: 1px solid var(--mb-line);
+  border-radius: var(--mb-radius-sm);
+}
+
+.mb-chord-editor-footer, .mb-help-footer {
+  margin-top: 22px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.mb-btn-save-chord {
+  height: 42px;
+  padding: 0 20px;
+  background: var(--mb-accent);
+  border-color: var(--mb-accent);
+  color: #fff;
+  font-weight: 700;
+  border-radius: var(--mb-radius-md);
 }
 
 .mb-help-kicker {
   font-size: 10px;
   font-weight: 800;
-  letter-spacing: 0.1em;
   color: var(--mb-accent);
   text-transform: uppercase;
 }
@@ -638,14 +901,8 @@ input[type="range"] {
   gap: 8px;
 }
 
-.mb-help-footer {
-  margin-top: 20px;
-  display: flex;
-  justify-content: flex-end;
-}
-
 /* ==========================================================================
-   9. MOTION & REDUCED MOTION PREFERENCES
+   9. MOTION PREFERENCES
    ========================================================================== */
 
 @media (prefers-reduced-motion: reduce) {
@@ -657,27 +914,63 @@ input[type="range"] {
 }
 
 /* ==========================================================================
-   10. RESPONSIVE BREAKPOINTS (Mobile & Tablet)
+   10. RESPONSIVE BREAKPOINTS (Mobile, Tablet, Desktop)
    ========================================================================== */
 
-@media (max-width: 768px) {
+@media (max-width: 900px) {
   .mb-chord-pad-grid {
     grid-template-columns: repeat(4, 1fr);
   }
+  .mb-bass-pad-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
 
+@media (max-width: 768px) {
+  .mb-master-transport {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .mb-transport-center {
+    flex-wrap: wrap;
+  }
   .mb-lead-perf-shell {
     grid-template-columns: 1fr;
   }
-
   .mb-lead-strips {
-    height: 120px;
+    height: 110px;
   }
-
   .mb-perf-strip {
     height: 100%;
   }
+  .mb-seq-steps {
+    grid-template-columns: repeat(8, 1fr);
+  }
+}
 
-  .mb-record-transport {
-    flex-wrap: wrap;
+@media (max-width: 540px) {
+  .mb-instrument-tabs {
+    overflow-x: auto;
+    padding-bottom: 4px;
+  }
+  .mb-tab-btn {
+    min-width: 105px;
+    font-size: 12px;
+    height: 42px;
+  }
+  .mb-chord-pad-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+    padding: 12px;
+  }
+  .mb-pad-label {
+    font-size: 15px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .mb-chord-pad {
+    min-height: 84px;
+    padding: 10px;
   }
 }
