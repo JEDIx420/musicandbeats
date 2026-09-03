@@ -1,2 +1,0 @@
-/* Music & Beats V35 compatibility marker — V36 loads immediately after this file. */
-(()=>{if(window.MB_V35){document.documentElement.classList.add('mb-v35');document.body.classList.add('mb-v35')}})();

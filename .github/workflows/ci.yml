@@ -1,0 +1,85 @@
+name: Music & Beats Canonical CI & Deployment
+
+on:
+  pull_request:
+  push:
+    branches: [main, refactor/runtime-consolidation]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: 'pages'
+  cancel-in-progress: false
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Syntax check canonical JavaScript
+        run: |
+          for f in update-guard.js sw.js src/*.js src/instruments/*.js; do
+            node --check "$f"
+          done
+
+      - name: Run Phase 4 Regression Suite (Foundations)
+        run: node test-phase4.mjs
+
+      - name: Run Phase 5 Regression Suite (Instruments)
+        run: node test-phase5.mjs
+
+      - name: Run Phase 6 Regression Suite (Rhythm, Recording & Projects)
+        run: node test-phase6.mjs
+
+      - name: Run Phase 7 Regression Suite (Application & UI)
+        run: node test-phase7.mjs
+
+      - name: Run Phase 8 Verification Suite (Canonical Styles)
+        run: node test-phase8.mjs
+
+      - name: Verify Service Worker Precache Assets
+        run: |
+          node -e '
+            import("./sw.js").catch(() => {});
+            import fs from "node:fs";
+            const sw = fs.readFileSync("sw.js", "utf8");
+            const match = sw.match(/const ASSETS\s*=\s*\[([\s\S]*?)\];/);
+            if (!match) throw new Error("Could not parse ASSETS from sw.js");
+            const raw = match[1];
+            const assets = eval("[" + raw + "]");
+            let missing = 0;
+            for (const a of assets) {
+              if (a === "./") continue;
+              const clean = a.replace(/^\.\//, "");
+              if (!fs.existsSync(clean)) {
+                console.error("Missing SW asset:", clean);
+                missing++;
+              }
+            }
+            if (missing > 0) process.exit(1);
+            console.log("All " + assets.length + " SW assets verified on disk.");
+          '
+
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/configure-pages@v4
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: '.'
+      - id: deployment
+        uses: actions/deploy-pages@v4

@@ -1,9 +1,0 @@
-/* Music & Beats V36 — latch and legacy UI cleanup. */
-.mb-v36 #playScreen,.mb-v36 #recordSetupScreen,.mb-v36 #recordScreen,.mb-v36 #v7ProjectsDialog{display:none!important}
-.v36-latch-control{display:flex;flex-direction:column;gap:7px;min-width:112px;font-size:.72rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--muted,#9ba2b0)}
-.v36-latch-toggle{min-height:48px;border:1px solid rgba(255,255,255,.12);border-radius:14px;background:rgba(255,255,255,.045);color:inherit;display:flex;align-items:center;justify-content:center;gap:9px;padding:0 14px;font:inherit;letter-spacing:0;text-transform:none}
-.v36-latch-toggle i{width:9px;height:9px;border-radius:999px;background:rgba(255,255,255,.28);box-shadow:0 0 0 4px rgba(255,255,255,.03)}
-.v36-latch-toggle.on{border-color:rgba(155,119,255,.58);background:rgba(130,91,255,.15);color:#f2eeff}
-.v36-latch-toggle.on i{background:#b89cff;box-shadow:0 0 0 4px rgba(184,156,255,.12),0 0 18px rgba(184,156,255,.6)}
-.v34-performance-pad.v36-latched{border-color:rgba(184,156,255,.82)!important;box-shadow:inset 0 0 0 1px rgba(184,156,255,.24),0 0 24px rgba(123,87,255,.16)!important;background:linear-gradient(180deg,rgba(139,103,255,.20),rgba(75,54,126,.12))!important}
-@media(max-width:720px){.v36-latch-control{width:100%}.v36-latch-toggle{width:100%;min-height:52px}.mb-v36 .top-actions{gap:8px}.mb-v36 .top-actions button{min-width:auto}}

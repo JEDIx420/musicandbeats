@@ -3,95 +3,18 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no" />
-  <meta name="theme-color" content="#08090c" />
+  <meta name="theme-color" content="#07080a" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="Music & Beats" />
   <title>Music & Beats</title>
   <link rel="manifest" href="manifest.webmanifest" />
   <link rel="icon" href="icon.svg" type="image/svg+xml" />
-  <link rel="stylesheet" href="styles.css" />
-  <link rel="stylesheet" href="v4.css" />
-  <link rel="stylesheet" href="v5.css" />
-  <link rel="stylesheet" href="v6.css" />
-  <link rel="stylesheet" href="v6-patch.css" />
-  <link rel="stylesheet" href="v7.css" />
-  <link rel="stylesheet" href="v8.css" />
+  <link rel="stylesheet" href="src/styles.css" />
 </head>
 <body>
-  <div class="app-shell">
-    <header class="topbar">
-      <button class="brand-button" id="homeBtn" type="button" aria-label="Go to home">
-        <span class="brand-mark"><i></i><i></i><i></i><i></i></span>
-        <span><small>MUSIC WORKSTATION</small><strong>Music & Beats</strong></span>
-      </button>
-      <div class="top-actions"><span id="engineBadge" class="status-pill"><span></span>Audio off</span><button id="saveBtn" class="ghost-btn" type="button">Save</button></div>
-    </header>
-    <main>
-      <section id="homeScreen" class="screen home-screen active">
-        <div class="hero-copy"><span class="eyebrow">START A SESSION</span><h1>What do you want to do?</h1><p>Jump straight into a groove, or build a structured loop one layer at a time.</p></div>
-        <div class="mode-grid">
-          <button class="mode-card play-card" id="enterPlay" type="button"><div class="mode-icon">▶</div><div class="mode-copy"><span class="mode-kicker">INSTANT</span><h2>Play</h2><p>Choose a beat, plug in a guitar, play editable Smart Keys or bass, and perform live.</p><span class="mode-cta">Open performance mode →</span></div></button>
-          <button class="mode-card record-card" id="enterRecord" type="button"><div class="mode-icon record-dot">●</div><div class="mode-copy"><span class="mode-kicker">BUILD A LOOP</span><h2>Record</h2><p>Set the tempo and loop length, then record each layer individually with guided timing and a tracks timeline.</p><span class="mode-cta">Start a recording session →</span></div></button>
-        </div>
-        <div class="home-feature-row"><span>6 layers</span><span>Smart Keys</span><span>Beat generator</span><span>Bass</span><span>Guitar FX</span><span>Local saving</span></div>
-      </section>
-      <section id="playScreen" class="screen play-screen">
-        <div class="mode-header"><div><span class="eyebrow">PLAY MODE</span><h1>Jam instantly</h1><p>Pick a groove, then play guitar, Smart Keys or bass over it.</p></div><button class="ghost-btn back-home" type="button">← Home</button></div>
-        <section class="transport-card">
-          <button id="playAudioBtn" class="audio-start" type="button"><span>◉</span><strong>Start audio</strong></button><button id="playBeatToggle" class="transport-play" type="button">▶</button>
-          <div class="tempo-box"><button id="playBpmDown" type="button">−</button><label><small>BPM</small><input id="playBpm" type="number" min="40" max="220" value="100" inputmode="numeric" /></label><button id="playBpmUp" type="button">+</button></div>
-          <label class="switch"><input id="playMetronome" type="checkbox" /><span></span><em>Click</em></label><span id="playStatus" class="mini-status">Ready</span>
-        </section>
-        <div class="play-workspace">
-          <section class="panel instrument-panel">
-            <div class="panel-head"><div><span class="panel-kicker">INSTRUMENT</span><h2>Performance</h2></div><div class="select-row"><label>Sound<select id="playSound"></select></label><label>Octave<select id="playOctave"><option>2</option><option selected>3</option><option>4</option><option>5</option></select></label></div></div>
-            <div class="instrument-tabs" role="tablist"><button class="instrument-tab" data-instrument="guitar" type="button">Guitar</button><button class="instrument-tab active" data-instrument="chords" type="button">Smart Keys</button><button class="instrument-tab" data-instrument="bass" type="button">Bass</button></div>
-            <div id="playChordControls" class="chord-controls"><label>Key preset<select id="playKey"></select></label><label class="v6-hidden-control">Chord<select id="playChordFlavor"></select></label><label>Voicing<select id="playVoicing"><option value="close">Close</option><option value="open">Open</option><option value="wide">Wide</option></select></label></div>
-            <div id="playChords" class="chord-pads"></div>
-            <div class="keyboard-frame"><div class="keyboard-meta"><span id="playInstrumentLabel">Studio Grand</span><span id="playPolyphony">0 voices</span></div><div id="playKeyboard" class="keyboard" aria-label="Playable keyboard"></div></div>
-          </section>
-          <section class="panel beat-panel">
-            <div class="panel-head"><div><span class="panel-kicker">GROOVE</span><h2>Beat</h2></div><button id="clearPlayBeat" class="danger-ghost" type="button">Clear</button></div>
-            <div class="beat-options"><label>Style<select id="playBeatStyle"><option>Worship</option><option>Pop</option><option>Rock</option><option>Funk</option><option>House</option><option>Trap</option><option>Reggaeton</option><option>Lo-Fi</option></select></label><label class="energy-label">Energy<input id="playEnergy" type="range" min="1" max="5" value="3" /><strong id="playEnergyValue">3</strong></label><button id="generatePlayBeat" class="accent-btn" type="button">Generate variation</button></div>
-            <div id="playSequencer" class="sequencer"></div>
-          </section>
-        </div>
-      </section>
-      <section id="recordSetupScreen" class="screen record-setup-screen">
-        <div class="mode-header"><div><span class="eyebrow">RECORD MODE</span><h1>Set up your loop</h1><p>Lock the musical grid first. You can still adjust these settings later.</p></div><button class="ghost-btn back-home" type="button">← Home</button></div>
-        <div class="setup-card">
-          <div class="setup-field"><span class="setup-number">01</span><div><label for="sessionBpm">Tempo</label><p>How fast should the session run?</p></div><div class="stepper"><button id="sessionBpmDown" type="button">−</button><input id="sessionBpm" type="number" min="40" max="220" value="100" /><span>BPM</span><button id="sessionBpmUp" type="button">+</button></div></div>
-          <div class="setup-field"><span class="setup-number">02</span><div><label>Loop length</label><p>Every guided layer records exactly this many bars.</p></div><div id="barChoices" class="choice-pills"><button data-bars="1" type="button">1</button><button data-bars="2" type="button">2</button><button class="active" data-bars="4" type="button">4</button><button data-bars="8" type="button">8</button><button data-bars="16" type="button">16</button></div></div>
-          <div class="setup-field"><span class="setup-number">03</span><div><label>Layers</label><p>Start lean or use all six. You can add more later.</p></div><div id="layerChoices" class="choice-pills"><button data-layers="2" type="button">2</button><button data-layers="3" type="button">3</button><button class="active" data-layers="4" type="button">4</button><button data-layers="5" type="button">5</button><button data-layers="6" type="button">6</button></div></div>
-          <div class="setup-field"><span class="setup-number">04</span><div><label>Count-in</label><p>Give yourself a lead-in before each layer starts.</p></div><div id="countInChoices" class="choice-pills"><button data-count="0" type="button">Off</button><button class="active" data-count="1" type="button">1 bar</button><button data-count="2" type="button">2 bars</button><button data-count="4" type="button">4 bars</button></div></div>
-          <button id="startSessionBtn" class="primary-wide" type="button">Create session →</button>
-        </div>
-      </section>
-      <section id="recordScreen" class="screen record-screen">
-        <div class="record-topline"><button class="ghost-btn back-home" type="button">← Home</button><div class="session-progress"><span id="sessionProgressText">Layer 1 of 4</span><div id="sessionDots" class="session-dots"></div></div><button id="sessionSettingsBtn" class="ghost-btn" type="button">Session settings</button></div>
-        <div class="record-stage">
-          <aside class="layer-rail"><div class="rail-title"><span class="panel-kicker">SESSION</span><strong>Layers</strong></div><div id="layerRail" class="layer-rail-list"></div><button id="addLayerBtn" class="add-layer" type="button">＋ Add layer</button></aside>
-          <section class="current-layer-panel">
-            <div class="current-layer-head"><div><span id="currentLayerKicker" class="panel-kicker">LAYER 01</span><h1 id="currentLayerTitle">Choose what goes here</h1><p id="currentLayerSubtitle">Select a source, then record exactly into the session grid.</p></div><div class="loop-spec"><strong id="loopSpecBars">4 bars</strong><span>at</span><strong id="loopSpecBpm">100 BPM</strong></div></div>
-            <div id="sourceChooser" class="source-chooser"><button class="source-card" data-source="input" type="button"><span>🎤</span><strong>Audio input</strong><small>Mic, vocals or connected source</small></button><button class="source-card" data-source="guitar" type="button"><span>🎸</span><strong>Guitar</strong><small>Connected guitar • amps & pedals</small></button><button class="source-card" data-source="chords" type="button"><span>🎼</span><strong>Smart Keys</strong><small>Editable one-touch chords + keys</small></button><button class="source-card" data-source="bass" type="button"><span>♩</span><strong>Bass</strong><small>Playable bass instrument</small></button><button class="source-card" data-source="beats" type="button"><span>🥁</span><strong>Beat</strong><small>Generated or hand-edited rhythm</small></button></div>
-            <div id="layerSourceTools" class="layer-source-tools"></div>
-            <div class="record-console"><div class="count-display"><span id="recordPhase">READY</span><strong id="recordCount">—</strong><small id="recordTimingText">Choose a source to arm this layer</small></div><button id="recordLayerBtn" class="big-record" type="button" disabled><span></span><strong>Record layer</strong></button><div class="record-actions"><button id="redoLayerBtn" type="button" disabled>Redo</button><button id="clearLayerBtn" type="button" disabled>Clear</button></div></div>
-            <div class="layer-navigation"><button id="prevLayerBtn" class="ghost-btn" type="button">← Previous</button><button id="playSessionBtn" class="session-play" type="button">▶ Play session</button><button id="nextLayerBtn" class="accent-btn" type="button">Next layer →</button></div>
-          </section>
-        </div>
-      </section>
-    </main>
-  </div>
-  <dialog id="settingsDialog" class="settings-dialog"><form method="dialog"><div class="dialog-head"><div><span class="eyebrow">SESSION SETTINGS</span><h2>Adjust the grid</h2></div><button value="cancel" class="ghost-btn">×</button></div><label>BPM<input id="editSessionBpm" type="number" min="40" max="220" /></label><label>Bars<select id="editSessionBars"><option>1</option><option>2</option><option>4</option><option>8</option><option>16</option></select></label><label>Count-in<select id="editCountIn"><option value="0">Off</option><option value="1">1 bar</option><option value="2">2 bars</option><option value="4">4 bars</option></select></label><p class="dialog-note">Changing BPM after recording keeps layers bar-aligned by adjusting loop playback speed. External audio may shift pitch until true time-stretch is added.</p><button id="applySettingsBtn" value="default" class="primary-wide" type="button">Apply changes</button></form></dialog>
-  <script src="app.js"></script>
-  <script src="workflow-fixes.js"></script>
-  <script src="v4-fixes.js"></script>
-  <script src="v5-fixes.js"></script>
-  <script src="v5-hotfix.js"></script>
-  <script src="v6.js"></script>
-  <script src="v6-patch.js"></script>
-  <script src="v7.js"></script>
-  <script src="v8.js"></script>
+  <div id="app"></div>
+  <script src="update-guard.js"></script>
+  <script type="module" src="src/main.js"></script>
 </body>
 </html>
