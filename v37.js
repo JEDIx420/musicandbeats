@@ -198,23 +198,37 @@
     syncLeadCard();
   }
   function syncMixer(){
-    const mixer=document.querySelector('#v37Mixer');if(!mixer)return;
-    for(const row of mixer.querySelectorAll('[data-mix]')){
-      const lane=row.dataset.mix;const input=row.querySelector('input');const output=row.querySelector('output');const value=Math.round(local.mix[lane]*100);const label=`${value}%`;
-      if(document.activeElement!==input&&Number(input.value)!==value)input.value=String(value);
-      if(output&&output.textContent!==label)output.textContent=label;
-    }
+    document.querySelector('#v37Mixer')?.remove();
+    const cards=[
+      ['beats',document.querySelector('.v34-track[data-lane="beats"]')],
+      ['keys',document.querySelector('.v34-track[data-lane="keys"]')],
+      ['bass',document.querySelector('.v34-track[data-lane="bass"]')],
+      ['lead',document.querySelector('#v37LeadTrack')]
+    ];
+    cards.forEach(([lane,card])=>{
+      if(!card)return;
+      let wrap=card.querySelector('.v37-card-level');
+      if(!wrap){
+        wrap=document.createElement('div');
+        wrap.className='v37-card-level';
+        wrap.dataset.mixLane=lane;
+        const max=lane==='lead'?140:120;
+        wrap.innerHTML=`<div class="v37-level-head"><span>Level</span><output></output></div><input type="range" min="0" max="${max}" value="${Math.round(local.mix[lane]*100)}" aria-label="${lane} level">`;
+        card.appendChild(wrap);
+        const input=wrap.querySelector('input');
+        input.oninput=e=>{
+          local.mix[lane]=Number(e.target.value)/100;
+          saveLocal();
+        };
+      }
+      const input=wrap.querySelector('input'),output=wrap.querySelector('output');
+      const val=Math.round(local.mix[lane]*100);
+      if(document.activeElement!==input&&Number(input.value)!==val)input.value=String(val);
+      const txt=`${val}%`;
+      if(output&&output.textContent!==txt)output.textContent=txt;
+    });
   }
   function installMixer(){
-    const workspace=document.querySelector('#v34Workspace');if(!workspace)return;
-    let mixer=document.querySelector('#v37Mixer');
-    if(!mixer){
-      mixer=document.createElement('section');mixer.id='v37Mixer';mixer.className='v37-mixer';
-      const rows=[['beats','🥁','Beat'],['keys','🎹','Chords'],['bass','♩','Bass'],['lead','🎶','Lead']];
-      mixer.innerHTML=`<header><div><span class="v34-kicker">MIX</span><strong>Layer levels</strong></div><small>Balance the backing, then keep Lead forward.</small></header><div class="v37-mix-grid">${rows.map(([lane,icon,name])=>`<label data-mix="${lane}"><span><b>${icon} ${name}</b><output></output></span><input type="range" min="0" max="${lane==='lead'?140:120}" value="${Math.round(local.mix[lane]*100)}"></label>`).join('')}</div>`;
-      workspace.before(mixer);
-      for(const input of mixer.querySelectorAll('input'))input.oninput=event=>{const lane=event.target.closest('[data-mix]').dataset.mix;local.mix[lane]=Number(event.target.value)/100;saveLocal()};
-    }
     syncMixer();
   }
   function decorateHome(){

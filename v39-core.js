@@ -1,4 +1,4 @@
-/* Music & Beats V39 core — transpose, editable chord pads, Western sample catalog and project recall. */
+/* Music & Beats V39 core — transpose, live editable chord pads, Western sample catalog, keyboard shortcuts, and project recall. */
 (()=>{
 const V=window.MB_V35,api=window.MB_V34_LOOPER,V38=window.MB_V38;if(!V||!api||!V38||window.MB_V39)return;
 const {tracks}=api,L=api.state,PROJECTS='musicandbeats:v35:projects',SETTINGS='musicandbeats:v39:settings',clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),clone=x=>JSON.parse(JSON.stringify(x));
@@ -8,7 +8,11 @@ const voiceGroups={'Pianos & Keys':['Grand Piano','Bright Piano','Electric Grand
 const hidden=new Set(['Bansuri Lead','Sitar Lead','Sample Shakuhachi','Sample Sitar']);
 const chordTypes={'Major':[0,4,7],'Minor':[0,3,7],'Diminished':[0,3,6],'Augmented':[0,4,8],'Sus2':[0,2,7],'Sus4':[0,5,7],'Power 5':[0,7,12],'6':[0,4,7,9],'m6':[0,3,7,9],'7':[0,4,7,10],'maj7':[0,4,7,11],'m7':[0,3,7,10],'dim7':[0,3,6,9],'m7b5':[0,3,6,10],'add9':[0,4,7,14],'madd9':[0,3,7,14],'9':[0,4,7,10,14],'maj9':[0,4,7,11,14],'m9':[0,3,7,10,14],'11':[0,4,7,10,14,17],'m11':[0,3,7,10,14,17],'13':[0,4,7,10,14,17,21],'m13':[0,3,7,10,14,17,21],'6/9':[0,4,7,9,14],'7sus4':[0,5,7,10],'mMaj7':[0,3,7,11],'maj7#11':[0,4,7,11,18],'7b9':[0,4,7,10,13],'7#9':[0,4,7,10,15],'7b5':[0,4,6,10],'7#5':[0,4,8,10],'add11':[0,4,7,17],'madd11':[0,3,7,17]};
 const suffix={Major:'',Minor:'m',Diminished:'°',Augmented:'+',Sus2:'sus2',Sus4:'sus4','Power 5':'5','6':'6','m6':'m6','7':'7',maj7:'maj7',m7:'m7',dim7:'dim7',m7b5:'m7♭5',add9:'add9',madd9:'madd9','9':'9',maj9:'maj9',m9:'m9','11':'11',m11:'m11','13':'13',m13:'m13','6/9':'6/9','7sus4':'7sus4',mMaj7:'mMaj7','maj7#11':'maj7♯11','7b9':'7♭9','7#9':'7♯9','7b5':'7♭5','7#5':'7♯5',add11:'add11',madd11:'madd11',Custom:' custom'};
-const S={transpose:{keys:0,bass:0},chords:[],chordsCustomized:false,chordKey:tracks.keys.key,editorSlot:0,editorOpen:false,slide:true,glideMs:85,pitchRange:2,pitchBend:0,mod:0,leadVoice:'Grand Piano',keyPointers:new Map(),keyLatch:null};
+const S={transpose:{keys:0,bass:0},chords:[],chordsCustomized:false,chordKey:tracks.keys.key,editorSlot:0,editorOpen:false,slide:true,glideMs:85,pitchRange:2,pitchBend:0,mod:0,leadVoice:'Grand Piano',keyPointers:new Map(),keyLatch:null,heldShortcuts:new Map()};
+
+function getUICollapse(key){try{const v=JSON.parse(localStorage.getItem('musicandbeats:ui:controls')||'{}');return !!v[key]}catch{return false}}
+function setUICollapse(key,val){try{const v=JSON.parse(localStorage.getItem('musicandbeats:ui:controls')||'{}');v[key]=!!val;localStorage.setItem('musicandbeats:ui:controls',JSON.stringify(v))}catch{}}
+
 function defaults(key){try{return chordData(key).slice(0,7).map(c=>({root:c.name,type:c.quality==='minor'?'Minor':c.quality==='dim'?'Diminished':'Major',custom:''}))}catch{}const i=Math.max(0,NOTES.indexOf(key)),steps=[0,2,4,5,7,9,11],types=['Major','Minor','Minor','Major','Major','Minor','Diminished'];return steps.map((x,n)=>({root:NOTES[(i+x)%12],type:types[n],custom:''}))}
 try{const x=JSON.parse(localStorage.getItem(SETTINGS)||'null');if(x){if(x.transpose)Object.assign(S.transpose,x.transpose);if(Array.isArray(x.chords)&&x.chords.length===7)S.chords=x.chords;S.chordsCustomized=!!x.chordsCustomized;S.chordKey=x.chordKey||S.chordKey;S.slide=x.slide!==false;S.glideMs=clamp(+x.glideMs||85,0,300);S.pitchRange=[2,7,12].includes(+x.pitchRange)?+x.pitchRange:2;S.mod=clamp(+x.mod||0,0,1);S.leadVoice=x.leadVoice||S.leadVoice}}catch{}
 S.transpose.keys=clamp(+S.transpose.keys||0,-12,12);S.transpose.bass=clamp(+S.transpose.bass||0,-12,12);if(S.chords.length!==7)S.chords=defaults(tracks.keys.key);if(hidden.has(S.leadVoice)||(!SAMPLES[S.leadVoice]&&!['Fusion Lead','Glass Lead'].includes(S.leadVoice)))S.leadVoice='Grand Piano';V38.state.voice=S.leadVoice;if(V38.state.fxPreset==='Indian Space'){V38.state.fxPreset='Studio';V38.state.fx={...V38.FX_PRESETS.Studio}}
@@ -20,19 +24,242 @@ function label(c){return `${window.FLAT?.[c.root]||c.root}${suffix[c.type]??c.ty
 function meta(now){if(L.recordingLane==='keys')return{startTime:L.recordStartTime,startStep:L.recordStartStep,boundary:L.recordStartTime+V.totalSteps()*V.stepSeconds()};const g=L.captureGrace;if(g?.lane==='keys'&&now<=g.boundary)return{startTime:g.startTime,startStep:g.startStep,boundary:g.boundary};return null}
 function capture(h,end){if(h.captured||!h.meta)return;const sec=V.stepSeconds(),m=h.meta,e=Math.min(end,m.boundary),s=Math.max(h.startedAt,m.startTime);if(e<=m.startTime){h.captured=true;return}let a=Math.round((s-m.startTime)/sec),b=Math.round((e-m.startTime)/sec);a=clamp(a,0,V.totalSteps()-1);b=clamp(Math.max(a+1,b),a+1,V.totalSteps());tracks.keys.events.push({step:V.wrapStep(m.startStep+a),durationSteps:b-a,midis:[...h.midis],preset:h.preset});h.captured=true;V.persist()}
 function stopKey(h,end=ctx?.currentTime||0){if(!h)return;capture(h,end);h.voices?.forEach(v=>{try{v.stop()}catch{}});h.button?.classList.remove('active','v36-latched');if(S.keyLatch===h)S.keyLatch=null}
-function releaseKeys(){for(const h of S.keyPointers.values())stopKey(h);S.keyPointers.clear();stopKey(S.keyLatch);S.keyLatch=null}
-function down(e){const b=e.target.closest?.('#v34ChordPads .v34-performance-pad[data-v39-midis]');if(!b)return;e.preventDefault();e.stopImmediatePropagation();primeAudio();if(!ctx)return;const ms=b.dataset.v39Midis.split(',').map(Number).filter(Number.isFinite),preset=tracks.keys.sound,now=ctx.currentTime;if(V.extra.latchKeys){if(S.keyLatch?.button===b){stopKey(S.keyLatch,now);return}if(S.keyLatch)stopKey(S.keyLatch,now);const h={button:b,midis:ms,preset,voices:ms.map((m,i)=>startVoice(m,preset,.78-Math.min(i*.04,.22))),startedAt:now,meta:meta(now),captured:false};S.keyLatch=h;b.classList.add('active','v36-latched');return}const h={button:b,midis:ms,preset,voices:ms.map((m,i)=>startVoice(m,preset,.78-Math.min(i*.04,.22))),startedAt:now,meta:meta(now),captured:false};S.keyPointers.set(e.pointerId,h);b.classList.add('active');try{b.setPointerCapture(e.pointerId)}catch{}}
-function up(e){const h=S.keyPointers.get(e.pointerId);if(!h)return;e.preventDefault();e.stopImmediatePropagation();stopKey(h);S.keyPointers.delete(e.pointerId)}document.addEventListener('pointerdown',down,true);['pointerup','pointercancel','lostpointercapture'].forEach(t=>document.addEventListener(t,up,true));
+function releaseKeys(){for(const h of S.keyPointers.values())stopKey(h);S.keyPointers.clear();stopKey(S.keyLatch);S.keyLatch=null;for(const h of S.heldShortcuts.values())stopKey(h);S.heldShortcuts.clear()}
+
+function playVoiceForChord(m,preset,vol=0.76){
+  const outNode=L.playbackBus||synthBus;
+  if(window.MB_V39?.sampleManager&&V38.SAMPLE_VOICES[preset]){
+    const sm=window.MB_V39.sampleManager;
+    const spec=V38.SAMPLE_VOICES[preset];
+    const prog=window[spec?.variable];
+    const z=sm.zoneFor(prog,m);
+    if(z&&sm.status?.get(preset)==='ready'){
+      // Synchronous sample voice trigger if buffer decoded
+      const b=sm.buffers?.get?.(z);
+      if(b&&ctx){
+        const src=ctx.createBufferSource(),g=ctx.createGain(),now=ctx.currentTime;
+        const base=(+z.originalPitch||6000)/100+(+z.coarseTune||0)+(+z.fineTune||0)/100;
+        src.buffer=b;src.connect(g).connect(outNode);
+        g.gain.setValueAtTime(.0001,now);g.gain.exponentialRampToValueAtTime(vol*.88,now+.008);
+        const r=Math.pow(2,(m-base)/12);try{src.playbackRate.setValueAtTime(r,now)}catch{}
+        let stopped=false;
+        src.start(now,Math.max(0,+z.delay||0));
+        return {stop(){if(stopped)return;stopped=true;const t=ctx.currentTime;try{g.gain.cancelScheduledValues(t);g.gain.setTargetAtTime(.0001,t,.04);src.stop(t+.18)}catch{}}};
+      }
+    }
+    // Background preload if not ready yet
+    sm.preloadVoice(preset,m-12,m+12);
+  }
+  return startVoice(m,SOUND_PRESETS[preset]?preset:'Studio Grand',vol);
+}
+
+function startChordOnPad(b){
+  if(!b||!ctx)return;
+  const ms=b.dataset.v39Midis?.split(',').map(Number).filter(Number.isFinite);
+  if(!ms||!ms.length)return;
+  const preset=tracks.keys.sound,now=ctx.currentTime;
+  if(V.extra.latchKeys){
+    if(S.keyLatch?.button===b){stopKey(S.keyLatch,now);return}
+    if(S.keyLatch)stopKey(S.keyLatch,now);
+    const h={button:b,midis:ms,preset,voices:ms.map((m,i)=>playVoiceForChord(m,preset,.78-Math.min(i*.04,.22))),startedAt:now,meta:meta(now),captured:false};
+    S.keyLatch=h;b.classList.add('active','v36-latched');return h;
+  }
+  const h={button:b,midis:ms,preset,voices:ms.map((m,i)=>playVoiceForChord(m,preset,.78-Math.min(i*.04,.22))),startedAt:now,meta:meta(now),captured:false};
+  b.classList.add('active');return h;
+}
+
+function down(e){
+  const b=e.target.closest?.('#v34ChordPads .v34-performance-pad[data-v39-midis]');if(!b)return;
+  e.preventDefault();e.stopImmediatePropagation();primeAudio();if(!ctx)return;
+  const h=startChordOnPad(b);
+  if(h&&!V.extra.latchKeys){
+    S.keyPointers.set(e.pointerId,h);
+    try{b.setPointerCapture(e.pointerId)}catch{}
+  }
+}
+function up(e){const h=S.keyPointers.get(e.pointerId);if(!h)return;e.preventDefault();e.stopImmediatePropagation();stopKey(h);S.keyPointers.delete(e.pointerId)}
+document.addEventListener('pointerdown',down,true);['pointerup','pointercancel','lostpointercapture'].forEach(t=>document.addEventListener(t,up,true));
+
+function handleKeyDown(e){
+  if(e.repeat)return;
+  const tag=document.activeElement?.tagName?.toLowerCase();
+  if(['input','textarea','select'].includes(tag)||document.activeElement?.isContentEditable)return;
+  if(e.metaKey||e.ctrlKey||e.altKey)return;
+  let padIdx=-1;
+  if(e.code.startsWith('Digit')){const d=parseInt(e.code.slice(5),10);if(d>=1&&d<=7)padIdx=d-1}
+  else if(e.code.startsWith('Numpad')){const d=parseInt(e.code.slice(6),10);if(d>=1&&d<=7)padIdx=d-1}
+  if(padIdx<0)return;
+  const pads=document.querySelectorAll('#v34ChordPads .v34-performance-pad');
+  const pad=pads[padIdx];if(!pad)return;
+  e.preventDefault();primeAudio();
+  if(V.extra.latchKeys){
+    startChordOnPad(pad);
+  }else{
+    if(S.heldShortcuts.has(padIdx))return;
+    const h=startChordOnPad(pad);
+    if(h)S.heldShortcuts.set(padIdx,h);
+  }
+}
+function handleKeyUp(e){
+  const tag=document.activeElement?.tagName?.toLowerCase();
+  if(['input','textarea','select'].includes(tag)||document.activeElement?.isContentEditable)return;
+  let padIdx=-1;
+  if(e.code.startsWith('Digit')){const d=parseInt(e.code.slice(5),10);if(d>=1&&d<=7)padIdx=d-1}
+  else if(e.code.startsWith('Numpad')){const d=parseInt(e.code.slice(6),10);if(d>=1&&d<=7)padIdx=d-1}
+  if(padIdx<0)return;
+  if(V.extra.latchKeys)return;
+  const h=S.heldShortcuts.get(padIdx);
+  if(h){stopKey(h);S.heldShortcuts.delete(padIdx)}
+}
+window.addEventListener('keydown',handleKeyDown,true);
+window.addEventListener('keyup',handleKeyUp,true);
+
 function setTranspose(lane,n){n=clamp(+n||0,-12,12);const d=n-S.transpose[lane];if(!d)return;if(lane==='keys')releaseKeys();else window.MB_V36?.releaseLane?.('bass');tracks[lane].events=(tracks[lane].events||[]).map(e=>({...e,midis:(e.midis||[]).map(m=>clamp(+m+d,0,127))}));S.transpose[lane]=n;persist();V.persist();decorate()}
 const tSelect=lane=>`<label class="v39-transpose">Transpose<select id="v39Transpose${lane==='keys'?'Keys':'Bass'}">${Array.from({length:25},(_,i)=>i-12).map(n=>`<option value="${n}" ${n===S.transpose[lane]?'selected':''}>${n>0?'+':''}${n} st</option>`).join('')}</select></label>`;
 function bassPads(){document.querySelectorAll('#v34BassPads .v34-bass-pad').forEach(b=>{if(!b.dataset.v39BaseMidi)b.dataset.v39BaseMidi=b.dataset.midi;const m=clamp(+b.dataset.v39BaseMidi+S.transpose.bass,0,127);b.dataset.midi=m;const q=b.querySelector('strong'),txt=midiLabel(m);if(q&&q.textContent!==txt)q.textContent=txt})}
-function bass(){const g=document.querySelector('#v34Workspace .v34-control-grid');if(!g)return;if(!document.querySelector('#v39TransposeBass')){const d=document.createElement('div');d.innerHTML=tSelect('bass');const x=d.firstElementChild;g.insertBefore(x,g.lastElementChild);x.querySelector('select').onchange=e=>setTranspose('bass',e.target.value)}bassPads()}
-function chordPads(){[...document.querySelectorAll('#v34ChordPads .v34-performance-pad')].forEach((b,i)=>{const c=S.chords[i]||defaults(tracks.keys.key)[i],ms=midis(c),a=label(c),z=`${i+1} · ${ms.map(m=>midiLabel(m)).join(' ')}`;b.dataset.v39Midis=ms.join(',');const q=b.querySelector('strong'),r=b.querySelector('small');if(q&&q.textContent!==a)q.textContent=a;if(r&&r.textContent!==z)r.textContent=z})}
-function editorHTML(){const c=S.chords[S.editorSlot]||defaults(tracks.keys.key)[S.editorSlot];return `<section id="v39ChordEditor" class="v39-chord-editor"><header><div><span class="v34-kicker">CHORD EDITOR</span><strong>Pad ${S.editorSlot+1} · ${label(c)}</strong></div><button id="v39ChordToggle" type="button">${S.editorOpen?'Done':'Edit chords'}</button></header><div class="v39-chord-body" ${S.editorOpen?'':'hidden'}><div class="v39-slot-row">${S.chords.map((x,i)=>`<button data-v39-slot="${i}" type="button" class="${i===S.editorSlot?'active':''}"><span>${i+1}</span><b>${label(x)}</b></button>`).join('')}</div><div class="v39-chord-fields"><label>Root<select id="v39ChordRoot">${NOTES.map(n=>`<option ${n===c.root?'selected':''}>${n}</option>`).join('')}</select></label><label>Chord / extension<select id="v39ChordType">${[...Object.keys(chordTypes),'Custom'].map(n=>`<option ${n===c.type?'selected':''}>${n}</option>`).join('')}</select></label><label id="v39CustomIntervals" class="${c.type==='Custom'?'':'v39-hidden'}">Custom intervals<input id="v39ChordCustom" value="${V.esc(c.custom||'0,4,7')}" placeholder="0,4,7,10,14"><small>Semitones from root. Example 0,4,7,10,14 = 9th.</small></label></div><div class="v39-chord-actions"><button id="v39ApplyChord" class="v34-accent" type="button">Apply to pad</button><button id="v39ResetChord" type="button">Reset pad</button><button id="v39ResetAll" type="button">Reset all to ${tracks.keys.key}</button></div></div></section>`}
-function bindEditor(){const p=document.querySelector('#v39ChordEditor');if(!p)return;p.querySelector('#v39ChordToggle').onclick=()=>{S.editorOpen=!S.editorOpen;persist();keys(true)};p.querySelectorAll('[data-v39-slot]').forEach(b=>b.onclick=()=>{S.editorSlot=+b.dataset.v39Slot;keys(true)});p.querySelector('#v39ChordType')?.addEventListener('change',e=>p.querySelector('#v39CustomIntervals')?.classList.toggle('v39-hidden',e.target.value!=='Custom'));p.querySelector('#v39ApplyChord')?.addEventListener('click',()=>{releaseKeys();S.chords[S.editorSlot]={root:p.querySelector('#v39ChordRoot').value,type:p.querySelector('#v39ChordType').value,custom:p.querySelector('#v39ChordCustom')?.value||''};S.chordsCustomized=true;S.chordKey=tracks.keys.key;persist();keys(true)});p.querySelector('#v39ResetChord')?.addEventListener('click',()=>{releaseKeys();S.chords[S.editorSlot]=defaults(tracks.keys.key)[S.editorSlot];S.chordsCustomized=true;persist();keys(true)});p.querySelector('#v39ResetAll')?.addEventListener('click',()=>{releaseKeys();S.chords=defaults(tracks.keys.key);S.chordsCustomized=false;S.chordKey=tracks.keys.key;persist();keys(true)})}
-function keys(force=false){const g=document.querySelector('#v34Workspace .v34-control-grid');if(!g)return;if(S.chordKey!==tracks.keys.key&&!S.chordsCustomized){S.chords=defaults(tracks.keys.key);S.chordKey=tracks.keys.key;persist()}if(!document.querySelector('#v39TransposeKeys')){const d=document.createElement('div');d.innerHTML=tSelect('keys');const x=d.firstElementChild;g.insertBefore(x,g.lastElementChild);x.querySelector('select').onchange=e=>setTranspose('keys',e.target.value)}chordPads();if(force)document.querySelector('#v39ChordEditor')?.remove();if(!document.querySelector('#v39ChordEditor')){document.querySelector('#v34ChordPads')?.insertAdjacentHTML('afterend',editorHTML());bindEditor()}}
+function bass(){
+  const w=document.querySelector('#v34Workspace');if(!w)return;
+  decorateCollapseBass(w);
+  const g=w.querySelector('.v34-control-grid');if(!g)return;
+  if(!document.querySelector('#v39TransposeBass')){const d=document.createElement('div');d.innerHTML=tSelect('bass');const x=d.firstElementChild;g.insertBefore(x,g.lastElementChild);x.querySelector('select').onchange=e=>setTranspose('bass',e.target.value)}
+  bassPads();
+}
+function chordPads(){
+  [...document.querySelectorAll('#v34ChordPads .v34-performance-pad')].forEach((b,i)=>{
+    const c=S.chords[i]||defaults(tracks.keys.key)[i],ms=midis(c),a=label(c),z=`${i+1} · ${ms.map(m=>midiLabel(m)).join(' ')}`;
+    b.dataset.v39Midis=ms.join(',');
+    const q=b.querySelector('strong'),r=b.querySelector('small');
+    if(q&&q.textContent!==a)q.textContent=a;
+    if(r&&r.textContent!==z)r.textContent=z;
+    let cap=b.querySelector('.v39-keycap');
+    if(!cap){
+      cap=document.createElement('span');cap.className='v39-keycap';cap.textContent=String(i+1);
+      b.appendChild(cap);
+    }
+  });
+}
+
+function updateEditorLive(slot,root,type,customStr){
+  releaseKeys();
+  S.chords[slot]={root,type,custom:customStr||''};
+  S.chordsCustomized=true;S.chordKey=tracks.keys.key;persist();
+  chordPads();
+  const c=S.chords[slot];
+  const p=document.querySelector('#v39ChordEditor');
+  if(p){
+    const head=p.querySelector('header strong');
+    if(head)head.textContent=`Pad ${slot+1} · ${label(c)}`;
+    const slotBtn=p.querySelector(`[data-v39-slot="${slot}"] b`);
+    if(slotBtn)slotBtn.textContent=label(c);
+  }
+}
+
+function editorHTML(){
+  const c=S.chords[S.editorSlot]||defaults(tracks.keys.key)[S.editorSlot];
+  return `<section id="v39ChordEditor" class="v39-chord-editor">
+    <header><div><span class="v34-kicker">CHORD EDITOR</span><strong>Pad ${S.editorSlot+1} · ${label(c)}</strong></div><button id="v39ChordToggle" type="button">${S.editorOpen?'Done':'Edit chords'}</button></header>
+    <div class="v39-chord-body" ${S.editorOpen?'':'hidden'}>
+      <div class="v39-slot-row">${S.chords.map((x,i)=>`<button data-v39-slot="${i}" type="button" class="${i===S.editorSlot?'active':''}"><span>${i+1}</span><b>${label(x)}</b></button>`).join('')}</div>
+      <div class="v39-chord-fields">
+        <label>Root<select id="v39ChordRoot">${NOTES.map(n=>`<option ${n===c.root?'selected':''}>${n}</option>`).join('')}</select></label>
+        <label>Chord / extension<select id="v39ChordType">${[...Object.keys(chordTypes),'Custom'].map(n=>`<option ${n===c.type?'selected':''}>${n}</option>`).join('')}</select></label>
+        <label id="v39CustomIntervals" class="${c.type==='Custom'?'':'v39-hidden'}">Custom intervals<input id="v39ChordCustom" value="${V.esc(c.custom||'0,4,7')}" placeholder="0,4,7,10,14"><small>Semitones from root. Live applied.</small></label>
+      </div>
+      <div class="v39-chord-actions"><button id="v39ResetChord" type="button">Reset pad</button><button id="v39ResetAll" type="button">Reset all to ${tracks.keys.key}</button></div>
+    </div>
+  </section>`;
+}
+
+let customDebounce=null;
+function bindEditor(){
+  const p=document.querySelector('#v39ChordEditor');if(!p)return;
+  p.querySelector('#v39ChordToggle').onclick=()=>{S.editorOpen=!S.editorOpen;persist();keys(true)};
+  p.querySelectorAll('[data-v39-slot]').forEach(b=>b.onclick=()=>{S.editorSlot=+b.dataset.v39Slot;keys(true)});
+  const rootSel=p.querySelector('#v39ChordRoot'),typeSel=p.querySelector('#v39ChordType'),customInp=p.querySelector('#v39ChordCustom');
+  if(rootSel)rootSel.onchange=()=>updateEditorLive(S.editorSlot,rootSel.value,typeSel.value,customInp?.value);
+  if(typeSel)typeSel.onchange=()=>{
+    p.querySelector('#v39CustomIntervals')?.classList.toggle('v39-hidden',typeSel.value!=='Custom');
+    updateEditorLive(S.editorSlot,rootSel.value,typeSel.value,customInp?.value);
+  };
+  if(customInp)customInp.oninput=()=>{
+    clearTimeout(customDebounce);
+    customDebounce=setTimeout(()=>updateEditorLive(S.editorSlot,rootSel.value,typeSel.value,customInp.value),200);
+  };
+  p.querySelector('#v39ResetChord')?.addEventListener('click',()=>{releaseKeys();S.chords[S.editorSlot]=defaults(tracks.keys.key)[S.editorSlot];S.chordsCustomized=true;persist();keys(true)});
+  p.querySelector('#v39ResetAll')?.addEventListener('click',()=>{releaseKeys();S.chords=defaults(tracks.keys.key);S.chordsCustomized=false;S.chordKey=tracks.keys.key;persist();keys(true)});
+}
+
+function decorateCollapseKeys(w){
+  let btn=w.querySelector('#v39KeysCollapseBtn');
+  if(!btn){
+    const head=w.querySelector('.v34-work-head');if(!head)return;
+    btn=document.createElement('button');btn.id='v39KeysCollapseBtn';btn.type='button';btn.className='v39-focus-toggle';head.appendChild(btn);
+  }
+  const isCollapsed=getUICollapse('keysControls');
+  btn.setAttribute('aria-expanded',String(!isCollapsed));
+  btn.innerHTML=isCollapsed?'<span>Show controls</span> <i>⌄</i>':'<span>Hide controls</span> <i>⌃</i>';
+  btn.onclick=e=>{e.preventDefault();const next=!getUICollapse('keysControls');setUICollapse('keysControls',next);decorateCollapseKeys(w)};
+  const grid=w.querySelector('.v34-control-grid');
+  const ed=w.querySelector('#v39ChordEditor');
+  if(grid){
+    grid.querySelectorAll('label:not(.v36-latch-control),button#v34KeysRecord').forEach(el=>el.classList.toggle('v39-hidden',isCollapsed));
+  }
+  if(ed)ed.classList.toggle('v39-hidden',isCollapsed);
+}
+
+function decorateCollapseBass(w){
+  let btn=w.querySelector('#v39BassCollapseBtn');
+  if(!btn){
+    const head=w.querySelector('.v34-work-head');if(!head)return;
+    btn=document.createElement('button');btn.id='v39BassCollapseBtn';btn.type='button';btn.className='v39-focus-toggle';head.appendChild(btn);
+  }
+  const isCollapsed=getUICollapse('bassControls');
+  btn.setAttribute('aria-expanded',String(!isCollapsed));
+  btn.innerHTML=isCollapsed?'<span>Show controls</span> <i>⌄</i>':'<span>Hide controls</span> <i>⌃</i>';
+  btn.onclick=e=>{e.preventDefault();const next=!getUICollapse('bassControls');setUICollapse('bassControls',next);decorateCollapseBass(w)};
+  const grid=w.querySelector('.v34-control-grid');
+  if(grid){
+    grid.querySelectorAll('label:not(.v36-latch-control),button#v34BassRecord').forEach(el=>el.classList.toggle('v39-hidden',isCollapsed));
+  }
+}
+
+function enhanceKeysVoiceSelector(voiceSel){
+  if(!voiceSel||voiceSel.dataset.v39Grouped==='1')return;
+  voiceSel.dataset.v39Grouped='1';
+  const legacySynths=['Harmonium','Tanpura Drone','Bansuri Air','Sitar Pluck','Studio Grand','Soft Grand','Velvet EP','Tonewheel Organ','Dream Pad'];
+  let html=`<optgroup label="Standard / Traditional Synths">${legacySynths.filter(x=>SOUND_PRESETS[x]).map(x=>`<option value="${x}">${x}</option>`).join('')}</optgroup>`;
+  for(const [grp,names] of Object.entries(voiceGroups)){
+    html+=`<optgroup label="${grp}">${names.map(x=>`<option value="${x}">${x}</option>`).join('')}</optgroup>`;
+  }
+  voiceSel.innerHTML=html;
+  voiceSel.value=tracks.keys.sound;
+  voiceSel.onchange=e=>{
+    tracks.keys.sound=e.target.value;
+    persist();
+    if(V38.SAMPLE_VOICES[e.target.value]){
+      window.MB_V39?.sampleManager?.preloadVoice?.(e.target.value,36,84);
+    }
+  };
+}
+
+function keys(force=false){
+  const w=document.querySelector('#v34Workspace');if(!w)return;
+  decorateCollapseKeys(w);
+  const voiceSel=w.querySelector('#v34KeysSound');
+  if(voiceSel)enhanceKeysVoiceSelector(voiceSel);
+  const g=w.querySelector('.v34-control-grid');if(!g)return;
+  if(S.chordKey!==tracks.keys.key&&!S.chordsCustomized){S.chords=defaults(tracks.keys.key);S.chordKey=tracks.keys.key;persist()}
+  if(!document.querySelector('#v39TransposeKeys')){const d=document.createElement('div');d.innerHTML=tSelect('keys');const x=d.firstElementChild;g.insertBefore(x,g.lastElementChild);x.querySelector('select').onchange=e=>setTranspose('keys',e.target.value)}
+  chordPads();
+  if(force)document.querySelector('#v39ChordEditor')?.remove();
+  if(!document.querySelector('#v39ChordEditor')){document.querySelector('#v34ChordPads')?.insertAdjacentHTML('afterend',editorHTML());bindEditor()}
+}
+
 function decorate(){if(document.querySelector('#v38Keyboard'))return;if(L.activeLane==='keys')keys();else if(L.activeLane==='bass')bass()}
-const baseSave=V.saveProject.bind(V),baseLoad=V.loadProject.bind(V),baseNew=V.newProject.bind(V);V.saveProject=function(...a){const item=baseSave(...a);try{const list=JSON.parse(localStorage.getItem(PROJECTS)||'[]'),x=list.find(p=>p.id===item?.id);if(x?.data){x.data.v39={transpose:clone(S.transpose),chords:clone(S.chords),chordsCustomized:S.chordsCustomized,chordKey:S.chordKey,slide:S.slide,glideMs:S.glideMs,pitchRange:S.pitchRange,mod:S.mod,leadVoice:V38.state.voice};localStorage.setItem(PROJECTS,JSON.stringify(list))}}catch{}return item};V.loadProject=function(id){let x=null;try{x=JSON.parse(localStorage.getItem(PROJECTS)||'[]').find(p=>p.id===id)?.data?.v39||null}catch{};releaseKeys();window.MB_V39?.stopLead?.();const out=baseLoad(id);if(x){S.transpose={keys:clamp(+x.transpose?.keys||0,-12,12),bass:clamp(+x.transpose?.bass||0,-12,12)};S.chords=Array.isArray(x.chords)&&x.chords.length===7?x.chords:defaults(tracks.keys.key);S.chordsCustomized=!!x.chordsCustomized;S.chordKey=x.chordKey||tracks.keys.key;S.slide=x.slide!==false;S.glideMs=clamp(+x.glideMs||85,0,300);S.pitchRange=[2,7,12].includes(+x.pitchRange)?+x.pitchRange:2;S.mod=clamp(+x.mod||0,0,1);S.leadVoice=x.leadVoice||'Grand Piano'}else{S.transpose={keys:0,bass:0};S.chords=defaults(tracks.keys.key);S.chordsCustomized=false;S.chordKey=tracks.keys.key;S.leadVoice='Grand Piano'}V38.state.voice=hidden.has(S.leadVoice)?'Grand Piano':S.leadVoice;persist();setTimeout(()=>window.MB_V39?.decorate?.(),0);return out};V.newProject=function(){releaseKeys();window.MB_V39?.stopLead?.();const out=baseNew();Object.assign(S,{transpose:{keys:0,bass:0},chords:defaults(tracks.keys.key),chordsCustomized:false,chordKey:tracks.keys.key,slide:true,glideMs:85,pitchRange:2,pitchBend:0,mod:0,leadVoice:'Grand Piano'});V38.state.voice='Grand Piano';persist();setTimeout(()=>window.MB_V39?.decorate?.(),0);return out};
+const baseSave=V.saveProject.bind(V),baseLoad=V.loadProject.bind(V),baseNew=V.newProject.bind(V);
+V.saveProject=function(...a){const item=baseSave(...a);try{const list=JSON.parse(localStorage.getItem(PROJECTS)||'[]'),x=list.find(p=>p.id===item?.id);if(x?.data){x.data.v39={transpose:clone(S.transpose),chords:clone(S.chords),chordsCustomized:S.chordsCustomized,chordKey:S.chordKey,slide:S.slide,glideMs:S.glideMs,pitchRange:S.pitchRange,mod:S.mod,leadVoice:V38.state.voice};localStorage.setItem(PROJECTS,JSON.stringify(list))}}catch{}return item};
+V.loadProject=function(id){let x=null;try{x=JSON.parse(localStorage.getItem(PROJECTS)||'[]').find(p=>p.id===id)?.data?.v39||null}catch{};releaseKeys();window.MB_V39?.stopLead?.();const out=baseLoad(id);if(x){S.transpose={keys:clamp(+x.transpose?.keys||0,-12,12),bass:clamp(+x.transpose?.bass||0,-12,12)};S.chords=Array.isArray(x.chords)&&x.chords.length===7?x.chords:defaults(tracks.keys.key);S.chordsCustomized=!!x.chordsCustomized;S.chordKey=x.chordKey||tracks.keys.key;S.slide=x.slide!==false;S.glideMs=clamp(+x.glideMs||85,0,300);S.pitchRange=[2,7,12].includes(+x.pitchRange)?+x.pitchRange:2;S.mod=clamp(+x.mod||0,0,1);S.leadVoice=x.leadVoice||'Grand Piano'}else{S.transpose={keys:0,bass:0};S.chords=defaults(tracks.keys.key);S.chordsCustomized=false;S.chordKey=tracks.keys.key;S.leadVoice='Grand Piano'}V38.state.voice=hidden.has(S.leadVoice)?'Grand Piano':S.leadVoice;persist();setTimeout(()=>window.MB_V39?.decorate?.(),0);return out};
+V.newProject=function(){releaseKeys();window.MB_V39?.stopLead?.();const out=baseNew();Object.assign(S,{transpose:{keys:0,bass:0},chords:defaults(tracks.keys.key),chordsCustomized:false,chordKey:tracks.keys.key,slide:true,glideMs:85,pitchRange:2,pitchBend:0,mod:0,leadVoice:'Grand Piano'});V38.state.voice='Grand Piano';persist();setTimeout(()=>window.MB_V39?.decorate?.(),0);return out};
 function monitor(){if(!ctx)return;if(S.keyLatch&&!V.extra.latchKeys){stopKey(S.keyLatch);S.keyLatch=null}for(const h of [...S.keyPointers.values(),...(S.keyLatch?[S.keyLatch]:[])]){if(!h.meta&&L.recordingLane==='keys')h.meta=meta(ctx.currentTime);if(h.meta&&!h.captured&&ctx.currentTime>=h.meta.boundary-.002){stopKey(h,h.meta.boundary);for(const [id,z] of S.keyPointers)if(z===h)S.keyPointers.delete(id);if(S.keyLatch===h)S.keyLatch=null}}}
-window.MB_V39={version:'v39',V,api,V38,state:S,SAMPLES,voiceGroups,hidden,chordTypes,clamp,persist,releaseKeys,setTranspose,decorateCore:decorate,monitor};persist();
+window.MB_V39={version:'v39',V,api,V38,state:S,SAMPLES,voiceGroups,hidden,chordTypes,clamp,persist,releaseKeys,setTranspose,decorateCore:decorate,monitor,getUICollapse,setUICollapse};persist();
 })();

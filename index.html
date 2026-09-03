@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" class="mb-booting">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no" />
@@ -8,6 +8,26 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="Music & Beats" />
   <title>Music & Beats</title>
+  <style id="mbBootStyle">
+    html.mb-booting, html.mb-booting body { background: #08090c !important; }
+    html.mb-booting .app-shell { opacity: 0 !important; visibility: hidden !important; pointer-events: none !important; }
+    .app-shell { transition: opacity .14s ease; }
+    #mbBootSplash { position: fixed; inset: 0; z-index: 99999; display: grid; place-items: center; background: radial-gradient(circle at 50% 35%, rgba(139,124,255,.13), transparent 28rem), #07080a; transition: opacity .16s ease, visibility .16s ease; pointer-events: none; }
+    #mbBootSplash > div { display: grid; justify-items: center; gap: 9px; color: #f7f8fb; font-family: Inter, ui-sans-serif, system-ui, -apple-system, sans-serif; }
+    #mbBootSplash img { width: 46px; height: 46px; filter: drop-shadow(0 0 16px rgba(139,124,255,.28)); }
+    #mbBootSplash strong { font-size: 16px; letter-spacing: -.025em; }
+    #mbBootSplash span { font-size: 8px; letter-spacing: .18em; font-weight: 850; color: #858c9a; }
+    #mbBootSplash i { width: 78px; height: 2px; overflow: hidden; border-radius: 3px; background: #1d2028; position: relative; }
+    #mbBootSplash i:after { content: ''; position: absolute; inset: 0; width: 42%; background: linear-gradient(90deg, #8b7cff, #69e7ff); animation: mbBoot 1s ease-in-out infinite alternate; }
+    @keyframes mbBoot { from { transform: translateX(-20%); } to { transform: translateX(160%); } }
+    html.mb-ready #mbBootSplash { opacity: 0 !important; visibility: hidden !important; pointer-events: none !important; }
+  </style>
+  <script>
+    window.__MB_BOOT_FAILSAFE = setTimeout(function() {
+      document.documentElement.classList.remove('mb-booting');
+      document.documentElement.classList.add('mb-ready');
+    }, 3500);
+  </script>
   <link rel="manifest" href="manifest.webmanifest" />
   <link rel="icon" href="icon.svg" type="image/svg+xml" />
   <link rel="stylesheet" href="styles.css" />
@@ -19,6 +39,7 @@
   <link rel="stylesheet" href="v8.css" />
 </head>
 <body>
+  <div id="mbBootSplash" aria-hidden="true"><div><img src="icon.svg" alt=""><strong>Music & Beats</strong><span>LOADING WORKSTATION</span><i></i></div></div>
   <div class="app-shell">
     <header class="topbar">
       <button class="brand-button" id="homeBtn" type="button" aria-label="Go to home">

@@ -1,7 +1,7 @@
 /* Music & Beats V39 lead — glide, pitch/mod strips, deep FX path and Western sample voices. */
 (()=>{
 const M=window.MB_V39,V37=window.MB_V37;if(!M||!V37||M.leadReady)return;M.leadReady=true;const {V38,state:S,clamp}=M,L=M.api.state,BASE='https://cdn.jsdelivr.net/gh/surikov/webaudiofontdata@master/sound/';
-Object.assign(S,{leadPointers:new Map(),leadPending:new Map(),scripts:new Map(),buffers:new WeakMap(),fxInput:null,fxOutput:null,fxNodes:[],fxLfos:[]});
+Object.assign(S,{leadPointers:new Map(),leadPending:new Map(),scripts:new Map(),buffers:new WeakMap(),fxInput:null,fxOutput:null,fxNodes:[],fxLfos:[],sampleStatus:new Map()});
 const curve=a=>{const n=2048,x=new Float32Array(n);for(let i=0;i<n;i++){const v=i*2/n-1;x[i]=(1+a)*v/(1+a*Math.abs(v))}return x};
 function impulse(sec,dec){const r=ctx.sampleRate,n=Math.max(1,r*sec|0),b=ctx.createBuffer(2,n,r);for(let c=0;c<2;c++){const d=b.getChannelData(c);for(let i=0;i<n;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/n,dec)}return b}
 function cleanFX(){for(const l of S.fxLfos){try{l.stop()}catch{}}S.fxLfos=[];for(const n of S.fxNodes){try{n.disconnect()}catch{}}S.fxNodes=[];S.fxInput=S.fxOutput=null}
@@ -11,13 +11,135 @@ const dd=ctx.createGain(),dw=ctx.createGain(),delay=ctx.createDelay(1.2),fb=ctx.
 const rd=ctx.createGain(),rw=ctx.createGain(),conv=ctx.createConvolver(),rs=ctx.createGain(),sec=f.space==='Room'?.7:f.space==='Plate'?1.3:f.space==='Hall'?2.4:f.space==='Cathedral'?4.2:.2,dec=f.space==='Cathedral'?3.2:f.space==='Hall'?2.8:2.2;conv.buffer=impulse(sec,dec);rd.gain.value=1;rw.gain.value=f.space==='Off'?0:Math.min(.78,W);cur.connect(rd).connect(rs);cur.connect(conv).connect(rw).connect(rs);S.fxNodes.push(rd,rw,conv,rs);cur=rs;
 const hp=ctx.createBiquadFilter(),presence=ctx.createBiquadFilter(),comp=ctx.createDynamicsCompressor(),out=ctx.createGain();hp.type='highpass';hp.frequency.value=75;presence.type='peaking';presence.frequency.value=2700;presence.Q.value=.75;presence.gain.value=2.8;comp.threshold.value=-18;comp.knee.value=10;comp.ratio.value=3;comp.attack.value=.004;comp.release.value=.12;out.gain.value=V37.mix?.lead??1.1;cur.connect(hp).connect(presence).connect(comp).connect(out).connect(synthBus);S.fxNodes.push(hp,presence,comp,out);S.fxInput=input;S.fxOutput=out;return input}
 const dest=()=>!S.fxInput||S.fxInput.context!==ctx?buildFX():S.fxInput;
-function loadSample(name){const spec=V38.SAMPLE_VOICES[name];if(!spec)return Promise.resolve(null);if(window[spec.variable])return Promise.resolve(window[spec.variable]);if(S.scripts.has(name))return S.scripts.get(name);const p=new Promise(resolve=>{const s=document.createElement('script');s.src=BASE+spec.file;s.crossOrigin='anonymous';s.onload=()=>resolve(window[spec.variable]||null);s.onerror=()=>resolve(null);document.head.appendChild(s)});S.scripts.set(name,p);return p}
-const zoneFor=(p,m)=>p?.zones?.find(z=>m>=z.keyRangeLow&&m<=z.keyRangeHigh)||p?.zones?.reduce((a,z)=>Math.abs(m-(z.keyRangeLow+z.keyRangeHigh)/2)<Math.abs(m-(a.keyRangeLow+a.keyRangeHigh)/2)?z:a,p.zones[0]);
-async function zoneBuffer(z){if(!z?.file||!ctx)return null;if(S.buffers.has(z))return S.buffers.get(z);const bytes=Uint8Array.from(atob(z.file),c=>c.charCodeAt(0)).buffer,p=ctx.decodeAudioData(bytes.slice(0)).catch(()=>null);S.buffers.set(z,p);return p}
+
+function loadSample(name){
+  const spec=V38.SAMPLE_VOICES[name];if(!spec)return Promise.resolve(null);
+  if(window[spec.variable])return Promise.resolve(window[spec.variable]);
+  if(S.scripts.has(name))return S.scripts.get(name);
+  const p=new Promise(resolve=>{
+    const s=document.createElement('script');s.src=BASE+spec.file;s.crossOrigin='anonymous';
+    s.onload=()=>resolve(window[spec.variable]||null);
+    s.onerror=()=>{S.scripts.delete(name);resolve(null)};
+    document.head.appendChild(s);
+  });
+  S.scripts.set(name,p);return p;
+}
+const zoneFor=(p,m)=>p?.zones?.find(z=>m>=z.keyRangeLow&&m<=z.keyRangeHigh)||p?.zones?.reduce((a,z)=>Math.abs(m-(z.keyRangeLow+z.keyRangeHigh)/2)<Math.abs(m-(a.keyRangeLow+a.keyRangeHigh)/2)?z:a,p?.zones?.[0]);
+async function zoneBuffer(z){
+  if(!z?.file||!ctx)return null;
+  if(S.buffers.has(z))return S.buffers.get(z);
+  const bytes=Uint8Array.from(atob(z.file),c=>c.charCodeAt(0)).buffer;
+  const p=ctx.decodeAudioData(bytes.slice(0)).catch(()=>null);
+  S.buffers.set(z,p);return p;
+}
+
+function updateStatusUI(name,statusText){
+  if(V38.state.voice===name){
+    const el=document.querySelector('#v38SampleStatus');
+    if(el)el.textContent=statusText;
+  }
+}
+
+async function preloadVoice(name,minMidi=36,maxMidi=84){
+  if(!V38.SAMPLE_VOICES[name])return true;
+  S.sampleStatus.set(name,'loading');
+  updateStatusUI(name,`Loading ${name}…`);
+  const t0=performance.now();
+  const prog=await loadSample(name);
+  if(!prog){
+    S.sampleStatus.set(name,'error');
+    updateStatusUI(name,`Could not load ${name} — using synth fallback`);
+    return false;
+  }
+  if(ctx){
+    const needed=new Set();
+    for(let m=minMidi;m<=maxMidi;m+=3){
+      const z=zoneFor(prog,m);
+      if(z)needed.add(z);
+    }
+    await Promise.all([...needed].map(z=>zoneBuffer(z)));
+  }
+  S.sampleStatus.set(name,'ready');
+  const dur=(performance.now()-t0).toFixed(0);
+  updateStatusUI(name,`${name} ready · GeneralUser GS (${dur}ms)`);
+  return true;
+}
+
+function isVoiceReady(name,midi=60){
+  if(!V38.SAMPLE_VOICES[name])return true;
+  const spec=V38.SAMPLE_VOICES[name];
+  const prog=window[spec.variable];
+  if(!prog)return false;
+  const z=zoneFor(prog,midi);
+  if(!z)return false;
+  return S.buffers.has(z);
+}
+
+const sampleManager={loadSample,zoneFor,zoneBuffer,preloadVoice,isVoiceReady,status:S.sampleStatus};
+M.sampleManager=sampleManager;
+
 const pitch=(v,vib=0)=>(v.currentMidi??v.midi)+S.pitchBend+vib;
-async function sampleVoice(midi,name){const p=await loadSample(name),z=zoneFor(p,midi),b=await zoneBuffer(z),d=dest();if(!p||!z||!b||!d)return null;const src=ctx.createBufferSource(),g=ctx.createGain(),now=ctx.currentTime,base=(+z.originalPitch||6000)/100+(+z.coarseTune||0)+(+z.fineTune||0)/100;src.buffer=b;if(+z.loopStart>=0&&+z.loopEnd>+z.loopStart){src.loop=true;src.loopStart=z.loopStart/(z.sampleRate||b.sampleRate);src.loopEnd=z.loopEnd/(z.sampleRate||b.sampleRate)}g.gain.setValueAtTime(.0001,now);g.gain.exponentialRampToValueAtTime(.88,now+.008);src.connect(g).connect(d);const v={midi,currentMidi:midi,stopped:false,apply(gl=.02,vib=0){if(v.stopped)return;const r=Math.pow(2,(pitch(v,vib)-base)/12),t=ctx.currentTime;try{src.playbackRate.cancelScheduledValues(t);src.playbackRate.setTargetAtTime(r,t,Math.max(.002,gl/3))}catch{}},setMidi(n,gl){v.currentMidi=n;v.apply(gl)},stop(){if(v.stopped)return;v.stopped=true;const t=ctx.currentTime;try{g.gain.cancelScheduledValues(t);g.gain.setTargetAtTime(.0001,t,.04);src.stop(t+.18)}catch{}}};v.apply(0);src.start(now,Math.max(0,+z.delay||0));return v}
-function synthVoice(midi,name){const p=SOUND_PRESETS[name]||SOUND_PRESETS['Glass Lead']||SOUND_PRESETS['Studio Grand'],d=dest();if(!d)return null;const f=ctx.createBiquadFilter(),g=ctx.createGain(),now=ctx.currentTime;f.type='lowpass';f.frequency.value=p.filter||7600;f.Q.value=p.q||.7;const peak=(p.gain||.6)*.93;g.gain.setValueAtTime(.0001,now);g.gain.exponentialRampToValueAtTime(Math.max(.001,peak),now+Math.max(.002,p.attack||.01));g.gain.exponentialRampToValueAtTime(Math.max(.001,peak*(p.sustain??.72)),now+Math.max(.05,(p.attack||.01)+(p.decay||.12)));f.connect(g).connect(d);const os=(p.oscs||[['sine',0,1]]).map(([type,semi,lev])=>{const o=ctx.createOscillator(),og=ctx.createGain();o.type=type;og.gain.value=lev;o.connect(og).connect(f);o.start();return{o,semi}});const v={midi,currentMidi:midi,stopped:false,apply(gl=.02,vib=0){if(v.stopped)return;const t=ctx.currentTime,q=pitch(v,vib);for(const x of os){try{x.o.frequency.cancelScheduledValues(t);x.o.frequency.setTargetAtTime(midiToFreq(q+x.semi),t,Math.max(.002,gl/3))}catch{}}},setMidi(n,gl){v.currentMidi=n;v.apply(gl)},stop(){if(v.stopped)return;v.stopped=true;const t=ctx.currentTime,r=Math.max(.05,Math.min(.45,p.release||.18));try{g.gain.cancelScheduledValues(t);g.gain.setTargetAtTime(.0001,t,r/3);os.forEach(x=>x.o.stop(t+r+.04))}catch{}}};v.apply(0);return v}
-const makeVoice=m=>V38.SAMPLE_VOICES[V38.state.voice]?sampleVoice(m,V38.state.voice):synthVoice(m,V38.state.voice);
+async function sampleVoice(midi,name,outNode=null){
+  const targetOut=outNode||dest();
+  const prog=await loadSample(name),z=zoneFor(prog,midi),b=await zoneBuffer(z);
+  if(!prog||!z||!b||!targetOut||!ctx)return null;
+  const src=ctx.createBufferSource(),g=ctx.createGain(),now=ctx.currentTime;
+  const base=(+z.originalPitch||6000)/100+(+z.coarseTune||0)+(+z.fineTune||0)/100;
+  src.buffer=b;
+  if(+z.loopStart>=0&&+z.loopEnd>+z.loopStart){
+    src.loop=true;src.loopStart=z.loopStart/(z.sampleRate||b.sampleRate);src.loopEnd=z.loopEnd/(z.sampleRate||b.sampleRate);
+  }
+  g.gain.setValueAtTime(.0001,now);
+  g.gain.exponentialRampToValueAtTime(.88,now+.008);
+  src.connect(g).connect(targetOut);
+  const v={midi,currentMidi:midi,stopped:false,apply(gl=.02,vib=0){
+    if(v.stopped)return;const r=Math.pow(2,(pitch(v,vib)-base)/12),t=ctx.currentTime;
+    try{src.playbackRate.cancelScheduledValues(t);src.playbackRate.setTargetAtTime(r,t,Math.max(.002,gl/3))}catch{}
+  },setMidi(n,gl){v.currentMidi=n;v.apply(gl)},stop(){
+    if(v.stopped)return;v.stopped=true;const t=ctx.currentTime;
+    try{g.gain.cancelScheduledValues(t);g.gain.setTargetAtTime(.0001,t,.04);src.stop(t+.18)}catch{}
+  }};
+  v.apply(0);src.start(now,Math.max(0,+z.delay||0));return v;
+}
+function synthVoice(midi,name,outNode=null){
+  const targetOut=outNode||dest();
+  const p=SOUND_PRESETS[name]||SOUND_PRESETS['Glass Lead']||SOUND_PRESETS['Studio Grand'];
+  if(!targetOut||!ctx)return null;
+  const f=ctx.createBiquadFilter(),g=ctx.createGain(),now=ctx.currentTime;
+  f.type='lowpass';f.frequency.value=p.filter||7600;f.Q.value=p.q||.7;
+  const peak=(p.gain||.6)*.93;
+  g.gain.setValueAtTime(.0001,now);
+  g.gain.exponentialRampToValueAtTime(Math.max(.001,peak),now+Math.max(.002,p.attack||.01));
+  g.gain.exponentialRampToValueAtTime(Math.max(.001,peak*(p.sustain??.72)),now+Math.max(.05,(p.attack||.01)+(p.decay||.12)));
+  f.connect(g).connect(targetOut);
+  const os=(p.oscs||[['sine',0,1]]).map(([type,semi,lev])=>{
+    const o=ctx.createOscillator(),og=ctx.createGain();o.type=type;og.gain.value=lev;
+    o.connect(og).connect(f);o.start();return{o,semi};
+  });
+  const v={midi,currentMidi:midi,stopped:false,apply(gl=.02,vib=0){
+    if(v.stopped)return;const t=ctx.currentTime,q=pitch(v,vib);
+    for(const x of os){try{x.o.frequency.cancelScheduledValues(t);x.o.frequency.setTargetAtTime(midiToFreq(q+x.semi),t,Math.max(.002,gl/3))}catch{}}
+  },setMidi(n,gl){v.currentMidi=n;v.apply(gl)},stop(){
+    if(v.stopped)return;v.stopped=true;const t=ctx.currentTime,r=Math.max(.05,Math.min(.45,p.release||.18));
+    try{g.gain.cancelScheduledValues(t);g.gain.setTargetAtTime(.0001,t,r/3);os.forEach(x=>x.o.stop(t+r+.04))}catch{}
+  }};
+  v.apply(0);return v;
+}
+async function makeVoice(m,outNode=null){
+  const name=V38.state.voice;
+  if(V38.SAMPLE_VOICES[name]){
+    const spec=V38.SAMPLE_VOICES[name];
+    const ready=window[spec.variable]&&zoneFor(window[spec.variable],m)&&S.buffers.has(zoneFor(window[spec.variable],m));
+    if(ready){
+      const voice=await sampleVoice(m,name,outNode);
+      if(voice)return voice;
+    }
+    // Zero-dead-air immediate compatible fallback while preloading in background
+    preloadVoice(name,m-12,m+12);
+    return synthVoice(m,'Glass Lead',outNode);
+  }
+  return synthVoice(m,name,outNode);
+}
 function duck(){if(!ctx)return;const on=S.leadPointers.size||S.leadPending.size;try{if(L.playbackBus?.gain){L.playbackBus.gain.cancelScheduledValues(ctx.currentTime);L.playbackBus.gain.setTargetAtTime(on?.90:1,ctx.currentTime,.025)}if(L.beatBus?.gain){L.beatBus.gain.cancelScheduledValues(ctx.currentTime);L.beatBus.gain.setTargetAtTime((V37.mix?.beats??.86)*(on?.88:1),ctx.currentTime,.025)}}catch{}}
 function stopLead(){for(const h of S.leadPointers.values()){h.voice?.stop?.();h.key?.classList.remove('active')}S.leadPointers.clear();for(const p of S.leadPending.values())p.cancelled=true;S.leadPending.clear();S.pitchBend=0;duck();ui()}
 async function down(e){const key=e.target.closest?.('#v38Keyboard .v38-key');if(!key)return;e.preventDefault();e.stopImmediatePropagation();const id=e.pointerId,midi=+key.dataset.midi,p={key,cancelled:false};S.leadPending.set(id,p);key.classList.add('active');duck();await ensureAudio();if(p.cancelled)return;primeAudio();const voice=await makeVoice(midi);S.leadPending.delete(id);if(p.cancelled||!voice||!key.isConnected){voice?.stop?.();key.classList.remove('active');duck();return}S.leadPointers.set(id,{voice,key,midi});try{key.setPointerCapture(id)}catch{}duck()}
@@ -29,9 +151,44 @@ function applyPitch(){for(const h of S.leadPointers.values())h.voice?.apply?.(.0
 function bindStrip(){const p=document.querySelector('#v39PitchStrip'),m=document.querySelector('#v39ModStrip');if(!p||p.dataset.bound)return;p.dataset.bound=1;let a=null,b=null;p.onpointerdown=e=>{e.preventDefault();a=e.pointerId;p.setPointerCapture?.(a);pitchFrom(e,p)};p.onpointermove=e=>{if(e.pointerId===a)pitchFrom(e,p)};const pe=e=>{if(e.pointerId!==a)return;a=null;S.pitchBend=0;applyPitch();ui()};p.onpointerup=pe;p.onpointercancel=pe;p.onlostpointercapture=pe;m.onpointerdown=e=>{e.preventDefault();b=e.pointerId;m.setPointerCapture?.(b);modFrom(e,m)};m.onpointermove=e=>{if(e.pointerId===b)modFrom(e,m)};const me=e=>{if(e.pointerId===b)b=null};m.onpointerup=me;m.onpointercancel=me;m.onlostpointercapture=me}
 function ui(){const p=document.querySelector('#v39PitchStrip'),m=document.querySelector('#v39ModStrip'),po=document.querySelector('#v39PitchValue'),mo=document.querySelector('#v39ModValue');if(p)p.style.setProperty('--v39-pos',`${50-(S.pitchBend/S.pitchRange)*44}%`);if(m)m.style.setProperty('--v39-pos',`${94-S.mod*88}%`);if(po)po.textContent=`${S.pitchBend>=0?'+':''}${S.pitchBend.toFixed(1)}`;if(mo)mo.textContent=`${Math.round(S.mod*100)}%`}
 const options=()=>Object.entries(M.voiceGroups).map(([g,n])=>`<optgroup label="${g}">${n.map(x=>`<option value="${x}" ${x===V38.state.voice?'selected':''}>${x}</option>`).join('')}</optgroup>`).join('');
-function decorate(){const w=document.querySelector('#v34Workspace'),voice=w?.querySelector('#v38Voice');if(!voice)return;const valid=Object.values(M.voiceGroups).flat();if(M.hidden.has(V38.state.voice)||!valid.includes(V38.state.voice))V38.state.voice=S.leadVoice='Grand Piano';if(voice.dataset.v39!=='1'){voice.innerHTML=options();voice.dataset.v39='1'}voice.value=V38.state.voice;const t=w.querySelector('.v38-toolbar');if(t&&!w.querySelector('#v39SlideMode')){t.insertAdjacentHTML('beforeend',`<label>Slide<select id="v39SlideMode"><option value="on" ${S.slide?'selected':''}>Glide on</option><option value="off" ${!S.slide?'selected':''}>Off</option></select></label><label>Glide<input id="v39Glide" type="range" min="0" max="300" step="5" value="${S.glideMs}"><output>${S.glideMs} ms</output></label><label>Pitch range<select id="v39PitchRange">${[2,7,12].map(n=>`<option value="${n}" ${n===S.pitchRange?'selected':''}>±${n}</option>`).join('')}</select></label>`);w.querySelector('#v39SlideMode').onchange=e=>{S.slide=e.target.value==='on';M.persist()};w.querySelector('#v39Glide').oninput=e=>{S.glideMs=+e.target.value;e.target.closest('label').querySelector('output').textContent=`${S.glideMs} ms`;M.persist()};w.querySelector('#v39PitchRange').onchange=e=>{S.pitchRange=+e.target.value;S.pitchBend=clamp(S.pitchBend,-S.pitchRange,S.pitchRange);M.persist();ui()}}
-w.querySelector('#v38FxPreset')?.querySelector('option[value="Indian Space"]')?.remove();const k=w.querySelector('#v38Keyboard');if(k&&!k.closest('.v39-performance-shell')){const sh=document.createElement('div');sh.className='v39-performance-shell';k.before(sh);sh.innerHTML=`<aside class="v39-performance-controls"><div class="v39-strip-wrap"><span>PITCH</span><div id="v39PitchStrip" class="v39-perf-strip pitch" role="slider"><i></i></div><output id="v39PitchValue">0.0</output></div><div class="v39-strip-wrap"><span>MOD</span><div id="v39ModStrip" class="v39-perf-strip mod" role="slider"><i></i></div><output id="v39ModValue">${Math.round(S.mod*100)}%</output></div></aside><div class="v39-phone-rotate">Rotate phone to landscape for Pitch + Mod</div>`;sh.appendChild(k);bindStrip();ui()}if(!voice.dataset.v39Change){voice.dataset.v39Change=1;voice.addEventListener('change',()=>{stopLead();setTimeout(()=>{S.leadVoice=V38.state.voice;M.persist();decorate()},0)})}}
+function getUICollapse(key){try{const v=JSON.parse(localStorage.getItem('musicandbeats:ui:controls')||'{}');return !!v[key]}catch{return false}}
+function setUICollapse(key,val){try{const v=JSON.parse(localStorage.getItem('musicandbeats:ui:controls')||'{}');v[key]=!!val;localStorage.setItem('musicandbeats:ui:controls',JSON.stringify(v))}catch{}}
+
+function decorateCollapseLead(w){
+  let btn=w.querySelector('#v39LeadCollapseBtn');
+  if(!btn){
+    const head=w.querySelector('.v34-work-head');
+    if(!head)return;
+    btn=document.createElement('button');
+    btn.id='v39LeadCollapseBtn';
+    btn.type='button';
+    btn.className='v39-focus-toggle';
+    head.appendChild(btn);
+  }
+  const isCollapsed=getUICollapse('leadControls');
+  btn.setAttribute('aria-expanded',String(!isCollapsed));
+  btn.innerHTML=isCollapsed?'<span>Show controls</span> <i>⌄</i>':'<span>Hide controls</span> <i>⌃</i>';
+  btn.onclick=e=>{
+    e.preventDefault();
+    const next=!getUICollapse('leadControls');
+    setUICollapse('leadControls',next);
+    decorateCollapseLead(w);
+  };
+  const toolbar=w.querySelector('.v38-toolbar');
+  const fx=w.querySelector('.v38-fx');
+  const status=w.querySelector('#v38SampleStatus');
+  if(toolbar)toolbar.classList.toggle('v39-hidden',isCollapsed);
+  if(fx)fx.classList.toggle('v39-hidden',isCollapsed);
+  if(status)status.classList.toggle('v39-hidden',isCollapsed);
+}
+
+function decorate(){
+  const w=document.querySelector('#v34Workspace'),voice=w?.querySelector('#v38Voice');if(!voice)return;
+  decorateCollapseLead(w);
+  const valid=Object.values(M.voiceGroups).flat();if(M.hidden.has(V38.state.voice)||!valid.includes(V38.state.voice))V38.state.voice=S.leadVoice='Grand Piano';if(voice.dataset.v39!=='1'){voice.innerHTML=options();voice.dataset.v39='1'}voice.value=V38.state.voice;const t=w.querySelector('.v38-toolbar');if(t&&!w.querySelector('#v39SlideMode')){t.insertAdjacentHTML('beforeend',`<label>Slide<select id="v39SlideMode"><option value="on" ${S.slide?'selected':''}>Glide on</option><option value="off" ${!S.slide?'selected':''}>Off</option></select></label><label>Glide<input id="v39Glide" type="range" min="0" max="300" step="5" value="${S.glideMs}"><output>${S.glideMs} ms</output></label><label>Pitch range<select id="v39PitchRange">${[2,7,12].map(n=>`<option value="${n}" ${n===S.pitchRange?'selected':''}>±${n}</option>`).join('')}</select></label>`);w.querySelector('#v39SlideMode').onchange=e=>{S.slide=e.target.value==='on';M.persist()};w.querySelector('#v39Glide').oninput=e=>{S.glideMs=+e.target.value;e.target.closest('label').querySelector('output').textContent=`${S.glideMs} ms`;M.persist()};w.querySelector('#v39PitchRange').onchange=e=>{S.pitchRange=+e.target.value;S.pitchBend=clamp(S.pitchBend,-S.pitchRange,S.pitchRange);M.persist();ui()}}
+  w.querySelector('#v38FxPreset')?.querySelector('option[value="Indian Space"]')?.remove();const k=w.querySelector('#v38Keyboard');if(k&&!k.closest('.v39-performance-shell')){const sh=document.createElement('div');sh.className='v39-performance-shell';k.before(sh);sh.innerHTML=`<aside class="v39-performance-controls"><div class="v39-strip-wrap"><span>PITCH</span><div id="v39PitchStrip" class="v39-perf-strip pitch" role="slider"><i></i></div><output id="v39PitchValue">0.0</output></div><div class="v39-strip-wrap"><span>MOD</span><div id="v39ModStrip" class="v39-perf-strip mod" role="slider"><i></i></div><output id="v39ModValue">${Math.round(S.mod*100)}%</output></div></aside><div class="v39-phone-rotate">Rotate phone to landscape for Pitch + Mod</div>`;sh.appendChild(k);bindStrip();ui()}
+  if(!voice.dataset.v39Change){voice.dataset.v39Change=1;voice.addEventListener('change',()=>{stopLead();const newVoice=voice.value;V38.state.voice=S.leadVoice=newVoice;M.persist();sampleManager.preloadVoice(newVoice);setTimeout(()=>{decorate()},0)})}}
 document.addEventListener('change',e=>{if(e.target.matches?.('#v38Layout,#v38StartOct,#v38Octaves'))stopLead();if(e.target.matches?.('#v38FxPreset,#v38Mod,#v38Drive,#v38Delay,#v38Space'))setTimeout(()=>{stopLead();if(ctx)buildFX()},0)},true);document.addEventListener('input',e=>{if(e.target.matches?.('#v38Intensity,#v38Wet,#v38Tone'))setTimeout(()=>{stopLead();if(ctx)buildFX()},0)},true);
 function monitor(){if(!ctx)return;const vib=Math.sin(ctx.currentTime*Math.PI*2*5.2)*S.mod*.42;for(const h of S.leadPointers.values())h.voice?.apply?.(.018,vib);if(S.fxOutput?.gain)try{S.fxOutput.gain.setTargetAtTime(V37.mix?.lead??1.1,ctx.currentTime,.03)}catch{}}
-Object.assign(M,{decorateLead:decorate,stopLead,monitorLead:monitor,buildLeadFX:buildFX});
+Object.assign(M,{decorateLead:decorate,stopLead,monitorLead:monitor,buildLeadFX:buildFX,getUICollapse,setUICollapse});
 })();
