@@ -1,4 +1,4 @@
-# Music & Beats — Feature to Code Map
+# Music & Beats — Feature to Code Map (Reconciled to V39)
 
 This document cross-references every required product feature to its existing implementation locations and its destination canonical module.
 
@@ -6,21 +6,21 @@ This document cross-references every required product feature to its existing im
 
 ### FEATURE: Application Shell, Home Screen & Navigation
 - **State**: `currentScreen`, `panic()`
-- **Functions**: `setScreen()`, `setupNavigation()`, `v8InstallBootGate()`
+- **Functions**: `setScreen()`, `setupNavigation()`, `v8InstallBootGate()`, `v39Init`
 - **DOM**: `#homeScreen`, `#homeBtn`, `#enterPlay`, `#enterRecord`, `#engineBadge`
-- **CSS**: `styles.css`, `v8.css`
-- **Current Owner**: `app.js`, `v8.js`
+- **CSS**: `styles.css`, `v8.css`, `v39.css`
+- **Current Owner**: `app.js`, `v8.js`, `v39.js`
 - **Canonical Owner**: `src/app-core.js`, `src/state.js`
 
 ---
 
-### FEATURE: Smart Keys & Latch
-- **State**: `v6PlaySmartKeys`, `v6PlaySmartKeyPreset`, `V18_LATCH.smart`, `chordVoices`
-- **Functions**: `chordData()`, `chordIntervals()`, `voiced()`, `v6DefaultSmartKeys()`, `v6ChordNotes()`, `v18SetLatch()`, `v18ReleaseSmartHeld()`
-- **DOM**: `#playChords`, `.chord-pad`, `.v18-latch-switch`
-- **CSS**: `styles.css`, `v6.css`, `v18.css`, `v23.css`
-- **Persistence**: `musicandbeats:v18:latch:smart`, project snapshot
-- **Current Owner**: `app.js`, `v6.js`, `v18.js`, `v23.js`
+### FEATURE: Smart Keys, Custom Chord Editor & Keys Transpose
+- **State**: `v6PlaySmartKeys`, `V18_LATCH.smart`, `S.transpose.keys`, `S.chords`, `S.chordsCustomized`, `S.chordKey`, `S.keyLatch`
+- **Functions**: `chordData()`, `chordIntervals()`, `v6ChordNotes()`, `v18SetLatch()`, `v39-core.js: keys()`, `setTranspose('keys', n)`, `chordPads()`, `editorHTML()`, `bindEditor()`
+- **DOM**: `#playChords`, `.chord-pad`, `.v18-latch-switch`, `#v39ChordEditor`, `#v39TransposeKeys`
+- **CSS**: `styles.css`, `v6.css`, `v18.css`, `v23.css`, `v39.css`
+- **Persistence**: `musicandbeats:v39:settings`, `musicandbeats:v35:projects`
+- **Current Owner**: `app.js`, `v6.js`, `v18.js`, `v23.js`, `v39-core.js`
 - **Canonical Owner**: `src/instruments/smart-keys.js`
 
 ---
@@ -36,24 +36,24 @@ This document cross-references every required product feature to its existing im
 
 ---
 
-### FEATURE: Lead Instrument (Piano / Keytar / Samples / Deep FX)
-- **State**: `state.layout`, `state.voice`, `state.startOctave`, `state.displayOctaves`, `state.fxPreset`, `state.fx`, `SAMPLE_VOICES`
-- **Functions**: `buildFX()`, `loadSampleVoice()`, `playNote()`, `stopNote()`, `renderLead()`, `decorate()`
-- **DOM**: `#v37LeadTrack`, `.v38-lead-shell`, `.v38-key`
-- **CSS**: `v38.css`, `v37.css`
-- **Persistence**: `musicandbeats:v38:settings`, `musicandbeats:v35:projects`
-- **Current Owner**: `v38.js`, `v38-stability.js`, `v37.js`
-- **Canonical Owner**: `src/instruments/lead.js`
+### FEATURE: Lead Instrument (Piano / Keytar / GeneralUser GS Samples / Glide / Pitch & Mod Strips / Deep FX)
+- **State**: `state.layout`, `state.voice`, `state.startOctave`, `state.displayOctaves`, `state.fxPreset`, `state.fx`, `S.slide`, `S.glideMs`, `S.pitchBend`, `S.pitchRange`, `S.mod`, `SAMPLE_VOICES`
+- **Functions**: `buildFX()`, `sampleVoice()`, `synthVoice()`, `down()`, `move()`, `up()`, `pitchFrom()`, `modFrom()`, `decorate()`, `renderLead()`
+- **DOM**: `#v37LeadTrack`, `.v38-lead-shell`, `.v38-key`, `#v39PitchStrip`, `#v39ModStrip`, `#v39SlideMode`, `#v39Glide`
+- **CSS**: `v38.css`, `v37.css`, `v39.css`
+- **Persistence**: `musicandbeats:v38:settings`, `musicandbeats:v39:settings`, `musicandbeats:v35:projects`
+- **Current Owner**: `v38.js`, `v38-stability.js`, `v37.js`, `v39-lead.js`
+- **Canonical Owner**: `src/instruments/lead.js` & `src/effects.js`
 
 ---
 
-### FEATURE: Bass Synth & Bass Latch
-- **State**: `V17_BASS_LIBRARY`, `V18_LATCH.bass`, `v18BassHeld`
-- **Functions**: `renderPlayInstrument()`, `v18SetLatch('bass')`, `v18ReleaseBassHeld()`
-- **DOM**: `#playKeyboard`, `[data-v18-latch="bass"]`
-- **CSS**: `v4.css`, `v17.css`, `v18.css`
-- **Persistence**: `musicandbeats:v18:latch:bass`, project snapshot
-- **Current Owner**: `app.js`, `v4-fixes.js`, `v13.js`, `v17.js`, `v18.js`
+### FEATURE: Bass Synth, Bass Transpose & Bass Latch
+- **State**: `V17_BASS_LIBRARY`, `V18_LATCH.bass`, `v18BassHeld`, `S.transpose.bass`
+- **Functions**: `renderPlayInstrument()`, `v18SetLatch('bass')`, `v18ReleaseBassHeld()`, `setTranspose('bass', n)`, `bassPads()`
+- **DOM**: `#playKeyboard`, `[data-v18-latch="bass"]`, `#v39TransposeBass`
+- **CSS**: `v4.css`, `v17.css`, `v18.css`, `v39.css`
+- **Persistence**: `musicandbeats:v18:latch:bass`, `musicandbeats:v39:settings`, project snapshot
+- **Current Owner**: `app.js`, `v4-fixes.js`, `v13.js`, `v17.js`, `v18.js`, `v39-core.js`
 - **Canonical Owner**: `src/instruments/bass.js`
 
 ---
@@ -101,13 +101,13 @@ This document cross-references every required product feature to its existing im
 
 ---
 
-### FEATURE: Tone & FX (M&B Performance Rack)
-- **State**: `V17_FX_BOARDS`, `V17_PLAY_FX`, `v17SynthRack`, `v17DriveCurve cache`
-- **Functions**: `v17EnsureSynthRack()`, `v17ApplyFx()`, `v17ApplyBoard()`, `v17BindFxRack()`
+### FEATURE: Tone & FX (M&B Performance Rack & V38/V39 Deep FX)
+- **State**: `V17_FX_BOARDS`, `V17_PLAY_FX`, `v17SynthRack`, `v17DriveCurve cache`, `FX_PRESETS` (Dry, Studio, Wide Chorus, Deep Phaser, Auto Wah, Cathedral, Ping Pong, etc.)
+- **Functions**: `v17EnsureSynthRack()`, `v17ApplyFx()`, `v17ApplyBoard()`, `v17BindFxRack()`, `buildFX()`
 - **DOM**: `.v17-fx-rack`, `.v17-pedal`, `[data-v17-board]`
-- **CSS**: `v17.css`, `v19.css`, `v26.css`
-- **Persistence**: `musicandbeats:v19:rack:play`, project snapshot
-- **Current Owner**: `v17.js`, `v17-fixes.js`, `v26.js`, `core-performance.js`
+- **CSS**: `v17.css`, `v19.css`, `v26.css`, `v38.css`
+- **Persistence**: `musicandbeats:v19:rack:play`, `musicandbeats:v38:settings`, project snapshot
+- **Current Owner**: `v17.js`, `v17-fixes.js`, `v26.js`, `core-performance.js`, `v38.js`, `v39-lead.js`
 - **Canonical Owner**: `src/effects.js`
 
 ---
@@ -124,24 +124,24 @@ This document cross-references every required product feature to its existing im
 
 ---
 
-### FEATURE: Mobile/Tablet Looper Interface (V34+)
-- **State**: `MB_V34_LOOPER` state (`tracks.keys`, `tracks.bass`, `tracks.beats`, `activeLane`)
-- **Functions**: `api.open()`, `api.start()`, `api.stop()`, `api.record()`, `hydrate()`, `persist()`
-- **DOM**: `.v34-looper-shell`, `#v34Tracks`, `#v34Transport`
-- **CSS**: `v34-looper.css`
-- **Persistence**: `musicandbeats:v34:looper`
-- **Current Owner**: `v34-looper.js`
+### FEATURE: Mobile/Tablet Looper Interface (V34+ / V37 / V39)
+- **State**: `MB_V34_LOOPER` state (`tracks.keys`, `tracks.bass`, `tracks.beats`, `activeLane`), `V37.mix`, `S.transpose`
+- **Functions**: `api.open()`, `api.start()`, `api.stop()`, `api.record()`, `hydrate()`, `persist()`, `applyMix()`
+- **DOM**: `.v34-looper-shell`, `#v34Tracks`, `#v34Transport`, `#v34ChordPads`, `#v34BassPads`
+- **CSS**: `v34-looper.css`, `v37.css`, `v39.css`
+- **Persistence**: `musicandbeats:v34:looper`, `musicandbeats:v37:settings`
+- **Current Owner**: `v34-looper.js`, `v37.js`, `v39-core.js`
 - **Canonical Owner**: `src/looper.js`
 
 ---
 
-### FEATURE: Project Manager & Persistence
+### FEATURE: Project Manager & Persistence (V35 / V37 / V38 / V39)
 - **State**: `MB_V35.extra`, `currentProjectId`, `currentProjectName`, `projectList()`
 - **Functions**: `saveProject()`, `loadProject()`, `deleteProject()`, `newProject()`, `snapshot()`, `applySnapshot()`
 - **DOM**: `#saveBtn`, `.v35-projects-dialog`, `.v35-project-item`
 - **CSS**: `v35.css`, `v36.css`
 - **Persistence**: `musicandbeats:v35:projects`, `musicandbeats:v35:settings`, `musicandbeats:v35:autosave`
-- **Current Owner**: `v35-core.js`, `v35-ui.js`, `v36.js`, `v37.js`, `v38.js`
+- **Current Owner**: `v35-core.js`, `v35-ui.js`, `v36.js`, `v37.js`, `v38.js`, `v39-core.js`
 - **Canonical Owner**: `src/projects.js`
 
 ---

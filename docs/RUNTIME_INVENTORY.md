@@ -1,8 +1,8 @@
-# Music & Beats — Runtime File Inventory
+# Music & Beats — Runtime File Inventory (Reconciled to V39)
 
 Every file in the repository runtime is analyzed below for its actual responsibility, overrides, final ownership destination, and classification (`KEEP`, `MERGE`, `SUPERSEDED`, `DEBUG`, `DELETE-CANDIDATE`).
 
-## JavaScript Files (47 total)
+## JavaScript Files (50 total)
 
 | File | Loaded? | Size | Purpose | Defines / Responsibilities | Wraps / Overrides | Final Owner Module | Classification | Notes |
 |---|---|---|---|---|---|---|---|---|
@@ -15,7 +15,7 @@ Every file in the repository runtime is analyzed below for its actual responsibi
 | `v6-patch.js` | Yes (HTML) | 5,823 B | Fixes for v6 timeline/guitar | Guitar meter cleanup, timeline event delegation | Patches v6 event handlers | `instruments/guitar.js`, `record-ui.js` | MERGE | Cleanup patches over v6. |
 | `v7.js` | Yes (HTML) | 17,242 B | Ascending ARP & UI | Arp visualizer canvas, ascending octave engine | Overrides `v6ArpTick`, visualizer loop | `arp-engine.js`, `play-ui.js` | MERGE | Visualizer math and octave expansion. |
 | `v8.js` | Yes (HTML) | 8,749 B | Record command bar & Boot | Boot splash screen, settings dialog, loads `v9.js` | Modifies `#settingsDialog`, `#recordScreen` | `app-core.js`, `record-ui.js` | MERGE | Boot splash + dynamic loader gateway. |
-| `v9.js` | Yes (v8) | 6,015 B | Touch guard & Loader | Touch guards (`selectstart`, etc.), loads entire patch chain | Global event guards, chain loader | `app-core.js` | MERGE | Touch gesture hardening + dynamic script loader. |
+| `v9.js` | Yes (v8) | 6,015 B | Touch guard & Loader | Touch guards (`selectstart`, etc.), loads entire patch chain | Global event guards, chain loader (includes `.v39-perf-strip`) | `app-core.js` | MERGE | Touch gesture hardening + dynamic script loader. |
 | `v10.js` | Yes (v9) | 7,658 B | Audio input gain & normalize | Input gain normalization, mic meter, input boost | Wraps `getLayerBus`, `renderLayerTools` | `recording.js`, `instruments/guitar.js` | MERGE | Mic gain calibration and normalization. |
 | `v12.js` | Yes (v9) | 3,576 B | iPad interaction hardening | Fastclick prevention, pointer event normalization | Touch/pointer listeners | `app-core.js` | MERGE | iPad touch optimizations. |
 | `v13.js` | Yes (v9) | 4,697 B | Bass hard-stop | `voice.hardStop()`, prevents bass note hanging on transport stop | Wraps `startVoice`, `stopSession` | `audio-engine.js`, `instruments/bass.js` | MERGE | Hard note kill semantics. |
@@ -45,10 +45,13 @@ Every file in the repository runtime is analyzed below for its actual responsibi
 | `v35-core.js` | Yes (v9) | 6,704 B | Project snapshots & styles | `MB_V35`: Named project CRUD, autosave, snapshot import/export, style presets | Persistence engine | `projects.js` | MERGE | Authoritative project saving and recall. |
 | `v35-ui.js` | Yes (v9) | 7,971 B | Project manager UI | Project modal, project list, new/save/delete dialogs | UI for projects | `projects.js`, `play-ui.js` | MERGE | Project selector and manager UI. |
 | `v35.js` | Yes (v9) | 204 B | V35 bootstrap marker | Sets `window.MB_V35_LOADED=true` | None | None | SUPERSEDED | Redundant one-line marker file. |
-| `v36.js` | Yes (v9) | 6,677 B | Project cleanup & release | Release-all guards when loading projects | Clean project switches | `projects.js`, `looper.js` | MERGE | State reset on project switch. |
+| `v36.js` | Yes (v9) | 6,677 B | Project cleanup & release | Release-all guards when loading projects; patched in V39 to respect edited-chord latch datasets | Clean project switches | `projects.js`, `looper.js` | MERGE | State reset on project switch. |
 | `v37.js` | Yes (v9) | 15,529 B | Lead lane & Backing mixer | `MB_V37`: Backing mixer (beats/keys/bass/lead levels), lead scale pentatonic keyboards | Adds mixer and lead lane | `instruments/lead.js`, `looper.js` | MERGE | Multi-track mixer and scale mapping. |
-| `v38.js` | Yes (v9) | 22,017 B | Chromatic Lead keyboard, samples & deep FX | `MB_V38`: True chromatic/keytar Lead keyboard, SoundFont / GeneralUser GS sample loader, 20 deep FX presets (Auto Wah, Deep Phaser, Cathedral, Ping Pong, etc.) | Overhauls Lead into full chromatic instrument | `instruments/lead.js`, `effects.js` | MERGE | Authoritative Lead instrument implementation. |
+| `v38.js` | Yes (v9) | 22,017 B | Chromatic Lead keyboard, samples & deep FX | `MB_V38`: True chromatic/keytar Lead keyboard, SoundFont / GeneralUser GS sample loader, 20 deep FX presets | Overhauls Lead into full chromatic instrument | `instruments/lead.js`, `effects.js` | MERGE | Lead keyboard, sample loader & deep FX. |
 | `v38-stability.js` | Yes (v9) | 1,127 B | Lead stability guard | Prevents legacy observers from hijacking V38 Lead card | Locks V38 Lead card binding | `instruments/lead.js` | MERGE | Lead UI ownership guard. |
+| `v39-core.js` | Yes (v9) | 15,929 B | V39 Transpose & Chord Editor | Keys/Bass ±12 st transpose, editable 7 chord pads, custom intervals (`0,4,7,10,14`), chord latch ownership | Overrides pad playback & latch in Looper, patches project snapshot | `instruments/smart-keys.js`, `instruments/bass.js`, `projects.js` | MERGE | Vital V39 core features: transpose, custom chords, latch fix. |
+| `v39-lead.js` | Yes (v9) | 15,562 B | V39 Lead Glide, Pitch/Mod & Catalog | Portamento glide (0–300ms), pitch bend strip (±2/7/12 st), modulation strip, expanded Western GeneralUser GS sample catalog | Enhances Lead playback, voice selection, pointer gestures | `instruments/lead.js`, `effects.js` | MERGE | Vital V39 lead features: pitch bend, mod wheel, glide, expanded samples. |
+| `v39.js` | Yes (v9) | 803 B | V39 Lifecycle & Bootstrap | Injects `mb-v39` class, coordinates core/lead decoration and monitoring | Bootstrap coordinator | `app-core.js` | MERGE | Lifecycle coordinator. |
 | `perf-debug.js` | Dev (`?debug=perf`) | 14,004 B | Performance profiler | Live metrics HUD, long-task monitoring, benchmark runner | Hooks `startVoice`, `v6ArpTick` | `perf-debug.js` | DEBUG | Keep as optional development profiler. |
 | `recorder-worklet.js` | Yes (AudioWorklet) | 2,325 B | Frame-exact audio recorder | Native AudioWorkletProcessor for recording PCM chunks | Independent worklet | `recorder-worklet.js` | KEEP | Critical: exact sample capture without timer drift. |
 | `sw.js` | Yes (Browser) | 2,751 B | Service Worker | Cache management and offline support | PWA caching | `sw.js` | MERGE | Needs updating to cache canonical files instead of historical chain. |
@@ -56,7 +59,7 @@ Every file in the repository runtime is analyzed below for its actual responsibi
 
 ---
 
-## CSS Files (33 total)
+## CSS Files (34 total)
 
 | File | Loaded In | Size | Purpose | Final Destination | Classification | Notes |
 |---|---|---|---|---|---|---|
@@ -93,3 +96,4 @@ Every file in the repository runtime is analyzed below for its actual responsibi
 | `v36.css` | Dynamic (`v9.js`) | 1,415 B | Project selector cleanups | `styles.css` | MERGE | Project item cards. |
 | `v37.css` | Dynamic (`v9.js`) | 3,167 B | Backing mixer faders & Lead lane | `styles.css` | MERGE | Volume faders. |
 | `v38.css` | Dynamic (`v9.js`) | 4,256 B | Chromatic Lead keyboard & Keytar styling | `styles.css` | MERGE | Real piano lead keyboard styling. |
+| `v39.css` | Dynamic (`v9.js`) | 3,800 B | Transpose controls, chord editor modal, pitch/mod performance strips | `styles.css` | MERGE | V39 chord editor & hardware pitch/mod wheel styling. |
