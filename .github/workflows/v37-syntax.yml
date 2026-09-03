@@ -1,0 +1,27 @@
+name: Current JavaScript syntax
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check current boot modules
+        run: |
+          node --check v9.js
+          node --check v36.js
+          node --check v37.js
+          node --check v38.js
+          node --check v38-stability.js
+          node --check v39-core.js
+          node --check v39-lead.js
+          node --check v39.js
+          node --check update-guard.js
+          node --check sw.js

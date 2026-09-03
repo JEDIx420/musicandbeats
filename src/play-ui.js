@@ -1,42 +1,43 @@
 /**
- * Music & Beats — Canonical Play UI Subsystem (Play-First Experience)
+ * Music & Beats — Canonical Play UI Subsystem (V39)
  *
- * Core Workstation Layout:
- * 1. Global Transport & Master Beat Bar (Start Audio, Play/Pause, Tempo BPM, Groove Style, Energy)
- * 2. Groove Box Beat Sequencer Panel (16-step Kick, Snare, Hat grid with procedural variations)
- * 3. Instrument Performance Lane (Smart Keys, Bass, Guitar, Lead)
- *    - Smart Keys: 7 editable chord pads, Voicing, Transpose, Latch, Full chord editor dialog
- *    - Bass: 7 Bass presets, Transpose, Latch, 4 performance pads
- *    - Guitar: Connect rig, Live RMS meter, Amp patch selector, Trim/Tone sliders
- *    - Lead: Piano keyboard with white and black keys, 44 GeneralUser GS voices, Glide slider, Pitch & Mod strips
- * 4. Expandable Jam Drawers (Arp Lab, Tone & FX Performance Rack)
+ * Consolidates:
+ * - Play Workspace view models and semantic DOM generation
+ * - 4 Performance Lanes: Smart Keys, Bass, Guitar, Lead
+ * - Smart Keys UI: key selector, sound preset, 7 editable chord pads, V39 chord editor, custom interval input, Keys transpose, latch
+ * - Bass UI: bass preset selector, bass pads, Bass transpose, Bass latch
+ * - Guitar UI: input device selector, RMS/peak meter, trim/tone/output controls, 6 virtual amp patches, pedalboard toggles
+ * - Lead UI: Piano/Keytar layout toggle, 1–3 displayed octaves, 44 GeneralUser GS voices, slide glide (0-300ms),
+ *   hardware Pitch Bend strip, Modulation strip (0-100%), Lead FX integration
+ * - Arp Lab UI: on/off, target (keys/bass), patterns (up, down, upDown, random, chord), rates (1/4 to 1/64), octaves (1-4)
+ * - Groove Box UI: 16-step grid across Kick/Snare/Hat, 10 beat styles, energy (1-5), pattern regeneration
+ * - M&B Performance Rack UI: 7 classic boards, rotary knobs (Drive, Tone, Chorus, Delay, Reverb)
+ * - Clean event delegation and explicit teardown to eliminate listener accumulation
  */
 
-import { smartKeys, SMART_CHORD_TYPES } from './instruments/smart-keys.js';
+import { smartKeys } from './instruments/smart-keys.js';
 import { bassInstrument } from './instruments/bass.js';
 import { guitarRig } from './instruments/guitar.js';
 import { leadInstrument, LEAD_VOICE_GROUPS } from './instruments/lead.js';
 import { arpEngine, ARP_PATTERNS, ARP_RATES } from './arp-engine.js';
 import { grooveBox, GROOVE_STYLES } from './groove-box.js';
 import { performanceRack, PERFORMANCE_BOARDS } from './effects.js';
-import { scheduler } from './scheduler.js';
-import { audioEngine } from './audio-engine.js';
-import { NOTES, midiLabel } from './state.js';
+import { NOTES, SOUND_PRESETS, midiLabel } from './state.js';
 import { helpSubsystem } from './help.js';
 
 export class PlayUI {
   constructor(container = null) {
     this.container = container;
     this.activeLane = 'keys'; // 'keys' | 'bass' | 'guitar' | 'lead'
-    this.openDrawer = 'none'; // 'none' | 'arp' | 'rack'
-    this.editingPadSlot = null; // null or 0..6 for chord editor modal
+    this.openDrawer = 'none'; // 'none' | 'arp' | 'groove' | 'rack'
 
+    // Clean Event Listener Tracker
     this.boundListeners = [];
     this.unsubscribers = [];
   }
 
   // ==========================================================================
-  // 1. VIEW MODELS
+  // 1. VIEW MODELS (Decoupled, Purely Testable Models)
   // ==========================================================================
 
   getSmartKeysViewModel() {
@@ -134,8 +135,7 @@ export class PlayUI {
       energy: grooveBox.energy,
       muted: grooveBox.muted,
       pattern: grooveBox.pattern,
-      styles: GROOVE_STYLES,
-      currentStep: grooveBox.currentStep
+      styles: GROOVE_STYLES
     };
   }
 
@@ -148,7 +148,7 @@ export class PlayUI {
   }
 
   // ==========================================================================
-  // 2. LIFECYCLE & MOUNT
+  // 2. DOM RENDERING (Clean, Semantic, Unpolluted by Legacy Observers)
   // ==========================================================================
 
   mount(root = this.container) {
@@ -157,20 +157,23 @@ export class PlayUI {
     this.unmount();
     this.render();
 
+    // Subscribe to runtime updates
     this.unsubscribers.push(smartKeys.subscribe(() => this.renderLane()));
     this.unsubscribers.push(bassInstrument.subscribe(() => this.renderLane()));
     this.unsubscribers.push(guitarRig.subscribe(() => this.renderLane()));
     this.unsubscribers.push(leadInstrument.subscribe(() => this.renderLane()));
     this.unsubscribers.push(arpEngine.subscribe(() => this.renderDrawers()));
-    this.unsubscribers.push(grooveBox.subscribe(() => this.renderBeatSequencer()));
+    this.unsubscribers.push(grooveBox.subscribe(() => this.renderDrawers()));
   }
 
   unmount() {
+    // Teardown all event listeners
     this.boundListeners.forEach(({ element, event, handler, options }) => {
       try { element.removeEventListener(event, handler, options); } catch {}
     });
     this.boundListeners = [];
 
+    // Teardown runtime subscriptions
     this.unsubscribers.forEach(unsub => {
       try { unsub(); } catch {}
     });
@@ -187,203 +190,33 @@ export class PlayUI {
     this.boundListeners.push({ element, event, handler, options });
   }
 
-  // ==========================================================================
-  // 3. MAIN WORKSPACE RENDERING
-  // ==========================================================================
-
   render() {
     if (!this.container) return;
 
     this.container.innerHTML = `
-      <div class="mb-play-workspace" role="region" aria-label="Music & Beats Jam Workspace">
-
-        <!-- 1. Master Transport & Beat Bar -->
-        <section class="mb-master-transport">
-          <div class="mb-transport-left">
-            <button class="mb-btn-audio-start" type="button">
-              <span>◉</span> Start Audio
-            </button>
-            <button class="mb-btn-beat-play ${scheduler.isRunning ? 'active' : ''}" type="button" aria-label="Toggle Beat Transport">
-              ${scheduler.isRunning ? '■ Stop' : '▶ Play Beat'}
-            </button>
-          </div>
-
-          <div class="mb-transport-center">
-            <div class="mb-tempo-box">
-              <button class="mb-bpm-btn mb-bpm-down" type="button">−</button>
-              <label>
-                <small>BPM</small>
-                <input class="mb-bpm-input" type="number" min="40" max="220" value="${scheduler.bpm}">
-              </label>
-              <button class="mb-bpm-btn mb-bpm-up" type="button">+</button>
-            </div>
-            <label class="mb-transport-field">
-              <small>STYLE</small>
-              <select class="mb-groove-style-sel">
-                ${GROOVE_STYLES.map(s => `<option value="${s}" ${s === grooveBox.style ? 'selected' : ''}>${s}</option>`).join('')}
-              </select>
-            </label>
-            <label class="mb-transport-field">
-              <small>ENERGY (<span class="mb-energy-val">${grooveBox.energy}</span>)</small>
-              <input class="mb-energy-slider" type="range" min="1" max="5" value="${grooveBox.energy}">
-            </label>
-          </div>
-
-          <div class="mb-transport-right">
-            <button class="mb-btn-variation" type="button">⚡ New Variation</button>
-            <button class="mb-btn-toggle-groove ${this.showGrooveGrid ? 'active' : ''}" type="button">🥁 Step Grid</button>
-          </div>
-        </section>
-
-        <!-- 2. Groove Box 16-Step Grid (Inline or Collapsible) -->
-        <section id="mbBeatSequencer" class="mb-beat-sequencer-card"></section>
-
-        <!-- 3. Primary Instrument Selector Tabs -->
-        <nav class="mb-instrument-tabs" role="tablist" aria-label="Choose Instrument">
-          <button role="tab" aria-selected="${this.activeLane === 'keys'}" class="mb-tab-btn ${this.activeLane === 'keys' ? 'active' : ''}" data-lane="keys">
-            🎹 Smart Keys
-          </button>
-          <button role="tab" aria-selected="${this.activeLane === 'bass'}" class="mb-tab-btn ${this.activeLane === 'bass' ? 'active' : ''}" data-lane="bass">
-            ♩ Bass
-          </button>
-          <button role="tab" aria-selected="${this.activeLane === 'guitar'}" class="mb-tab-btn ${this.activeLane === 'guitar' ? 'active' : ''}" data-lane="guitar">
-            🎸 Guitar Rig
-          </button>
-          <button role="tab" aria-selected="${this.activeLane === 'lead'}" class="mb-tab-btn ${this.activeLane === 'lead' ? 'active' : ''}" data-lane="lead">
-            ✨ Lead Solo
-          </button>
+      <div class="mb-play-shell" role="region" aria-label="Play Performance Workspace">
+        <!-- Instrument Navigation Tabs -->
+        <nav class="mb-instrument-tabs" role="tablist" aria-label="Play Instruments">
+          <button role="tab" aria-selected="${this.activeLane === 'keys'}" class="mb-tab-btn ${this.activeLane === 'keys' ? 'active' : ''}" data-lane="keys">🎹 Smart Keys</button>
+          <button role="tab" aria-selected="${this.activeLane === 'bass'}" class="mb-tab-btn ${this.activeLane === 'bass' ? 'active' : ''}" data-lane="bass">♩ Bass</button>
+          <button role="tab" aria-selected="${this.activeLane === 'guitar'}" class="mb-tab-btn ${this.activeLane === 'guitar' ? 'active' : ''}" data-lane="guitar">🎸 Guitar</button>
+          <button role="tab" aria-selected="${this.activeLane === 'lead'}" class="mb-tab-btn ${this.activeLane === 'lead' ? 'active' : ''}" data-lane="lead">✨ Lead</button>
         </nav>
 
-        <!-- 4. Active Instrument Performance Stage -->
-        <section id="mbActiveLane" class="mb-lane-stage"></section>
+        <!-- Active Instrument Surface -->
+        <section id="mbActiveLane" class="mb-lane-workspace"></section>
 
-        <!-- 5. Secondary Tools: Arp Lab & Tone/FX Drawers -->
-        <footer class="mb-tools-bar" role="toolbar" aria-label="Performance Drawers">
-          <button class="mb-tool-btn ${this.openDrawer === 'arp' ? 'active' : ''}" data-drawer="arp">⚡ Arp Lab</button>
-          <button class="mb-tool-btn ${this.openDrawer === 'rack' ? 'active' : ''}" data-drawer="rack">🎛 Tone &amp; FX</button>
-        </footer>
+        <!-- Modular Drawers (Arp Lab, Groove Box, Tone & FX) -->
+        <nav class="mb-drawer-bar" role="toolbar" aria-label="Play Modular Drawers">
+          <button class="mb-drawer-btn ${this.openDrawer === 'arp' ? 'active' : ''}" data-drawer="arp">⚡ Arp Lab</button>
+          <button class="mb-drawer-btn ${this.openDrawer === 'groove' ? 'active' : ''}" data-drawer="groove">🥁 Groove Box</button>
+          <button class="mb-drawer-btn ${this.openDrawer === 'rack' ? 'active' : ''}" data-drawer="rack">🎛 Tone & FX</button>
+        </nav>
         <div id="mbActiveDrawer" class="mb-drawer-container"></div>
       </div>
     `;
 
-    this.bindTransportControls();
-    this.bindNavigationAndDrawers();
-    this.renderBeatSequencer();
-    this.renderLane();
-    this.renderDrawers();
-  }
-
-  // ==========================================================================
-  // 4. TRANSPORT & BEAT SEQUENCER BINDINGS
-  // ==========================================================================
-
-  bindTransportControls() {
-    const audioBtn = this.container.querySelector('.mb-btn-audio-start');
-    this.listen(audioBtn, 'click', () => {
-      audioEngine.primeAudio();
-      audioBtn.classList.add('ready');
-      audioBtn.innerHTML = '<span>●</span> Audio On';
-    });
-
-    const playBtn = this.container.querySelector('.mb-btn-beat-play');
-    this.listen(playBtn, 'click', () => {
-      if (scheduler.isRunning) {
-        scheduler.stop();
-        grooveBox.stop();
-      } else {
-        audioEngine.primeAudio();
-        grooveBox.start();
-        scheduler.start();
-      }
-      playBtn.classList.toggle('active', scheduler.isRunning);
-      playBtn.textContent = scheduler.isRunning ? '■ Stop' : '▶ Play Beat';
-    });
-
-    this.listen(this.container.querySelector('.mb-bpm-down'), 'click', () => {
-      scheduler.setBpm(scheduler.bpm - 1);
-      this.updateBpmDisplay();
-    });
-
-    this.listen(this.container.querySelector('.mb-bpm-up'), 'click', () => {
-      scheduler.setBpm(scheduler.bpm + 1);
-      this.updateBpmDisplay();
-    });
-
-    this.listen(this.container.querySelector('.mb-bpm-input'), 'change', (e) => {
-      scheduler.setBpm(+e.target.value);
-      this.updateBpmDisplay();
-    });
-
-    this.listen(this.container.querySelector('.mb-groove-style-sel'), 'change', (e) => {
-      grooveBox.loadStyle(e.target.value);
-      this.renderBeatSequencer();
-    });
-
-    this.listen(this.container.querySelector('.mb-energy-slider'), 'input', (e) => {
-      const val = +e.target.value;
-      grooveBox.energy = val;
-      grooveBox.loadStyle(grooveBox.style, val);
-      const disp = this.container.querySelector('.mb-energy-val');
-      if (disp) disp.textContent = val;
-      this.renderBeatSequencer();
-    });
-
-    this.listen(this.container.querySelector('.mb-btn-variation'), 'click', () => {
-      grooveBox.loadStyle(grooveBox.style, grooveBox.energy, true);
-      this.renderBeatSequencer();
-    });
-
-    this.listen(this.container.querySelector('.mb-btn-toggle-groove'), 'click', (e) => {
-      const card = this.container.querySelector('#mbBeatSequencer');
-      card.classList.toggle('expanded');
-      e.target.classList.toggle('active');
-    });
-  }
-
-  updateBpmDisplay() {
-    const input = this.container?.querySelector('.mb-bpm-input');
-    if (input) input.value = scheduler.bpm;
-  }
-
-  renderBeatSequencer() {
-    const host = this.container?.querySelector('#mbBeatSequencer');
-    if (!host) return;
-
-    const vm = this.getGrooveBoxViewModel();
-    const rows = [
-      { name: 'KICK', id: 'kick', steps: vm.pattern.kick },
-      { name: 'SNARE', id: 'snare', steps: vm.pattern.snare },
-      { name: 'HI-HAT', id: 'hat', steps: vm.pattern.hat }
-    ];
-
-    host.innerHTML = `
-      <div class="mb-seq-grid">
-        ${rows.map(r => `
-          <div class="mb-seq-row" data-inst="${r.id}">
-            <span class="mb-seq-inst-label">${r.name}</span>
-            <div class="mb-seq-steps">
-              ${r.steps.map((on, idx) => `
-                <button class="mb-seq-step ${on ? 'on' : ''} ${idx === vm.currentStep ? 'current' : ''}" data-step="${idx}" type="button" aria-label="${r.name} step ${idx + 1}"></button>
-              `).join('')}
-            </div>
-          </div>
-        `).join('')}
-      </div>
-    `;
-
-    host.querySelectorAll('.mb-seq-step').forEach(btn => {
-      this.listen(btn, 'click', (e) => {
-        const row = e.target.closest('.mb-seq-row');
-        if (!row) return;
-        const inst = row.dataset.inst;
-        const step = +btn.dataset.step;
-        grooveBox.toggleStep(inst, step);
-        btn.classList.toggle('on');
-      });
-    });
-  }
-
-  bindNavigationAndDrawers() {
+    // Bind Navigation & Drawer Toggles via Delegation
     const tabNav = this.container.querySelector('.mb-instrument-tabs');
     this.listen(tabNav, 'click', (e) => {
       const btn = e.target.closest('[data-lane]');
@@ -397,20 +230,23 @@ export class PlayUI {
       this.renderLane();
     });
 
-    const drawerBar = this.container.querySelector('.mb-tools-bar');
-    this.listen(drawerBar, 'click', (e) => {
+    const drawerNav = this.container.querySelector('.mb-drawer-bar');
+    this.listen(drawerNav, 'click', (e) => {
       const btn = e.target.closest('[data-drawer]');
       if (!btn) return;
       this.openDrawer = this.openDrawer === btn.dataset.drawer ? 'none' : btn.dataset.drawer;
-      drawerBar.querySelectorAll('[data-drawer]').forEach(b => {
+      drawerNav.querySelectorAll('[data-drawer]').forEach(b => {
         b.classList.toggle('active', b.dataset.drawer === this.openDrawer);
       });
       this.renderDrawers();
     });
+
+    this.renderLane();
+    this.renderDrawers();
   }
 
   // ==========================================================================
-  // 5. INSTRUMENT PERFORMANCE LANES
+  // 3. LANE RENDERING (Smart Keys, Bass, Guitar, Lead)
   // ==========================================================================
 
   renderLane() {
@@ -436,51 +272,32 @@ export class PlayUI {
     const vm = this.getSmartKeysViewModel();
     return `
       <div class="mb-smart-keys-view">
-        <header class="mb-lane-toolbar">
-          <div class="mb-lane-toolbar-group">
-            <label>Key
-              <select class="mb-select-key">
-                ${NOTES.map(n => `<option value="${n}" ${n === vm.key ? 'selected' : ''}>${n}</option>`).join('')}
-              </select>
-            </label>
-            <label>Voicing
-              <select class="mb-select-voicing">
-                <option value="close" ${vm.voicing === 'close' ? 'selected' : ''}>Close</option>
-                <option value="open" ${vm.voicing === 'open' ? 'selected' : ''}>Open</option>
-                <option value="wide" ${vm.voicing === 'wide' ? 'selected' : ''}>Wide</option>
-              </select>
-            </label>
-            <label>Transpose
-              <select class="mb-select-transpose">
-                ${Array.from({ length: 25 }, (_, i) => i - 12).map(st =>
-                  `<option value="${st}" ${st === vm.transpose ? 'selected' : ''}>${st > 0 ? '+' : ''}${st} st</option>`
-                ).join('')}
-              </select>
-            </label>
-          </div>
-          <div class="mb-lane-toolbar-group">
-            <button class="mb-btn-latch ${vm.isLatchEnabled ? 'active' : ''}" type="button" aria-pressed="${vm.isLatchEnabled}">
-              🔒 Latch
-            </button>
-          </div>
+        <header class="mb-toolbar">
+          <label data-help="smart.key">Key
+            <select class="mb-select-key">
+              ${NOTES.map(n => `<option value="${n}" ${n === vm.key ? 'selected' : ''}>${n}</option>`).join('')}
+            </select>
+          </label>
+          <label data-help="smart.transpose">Transpose
+            <select class="mb-select-transpose">
+              ${Array.from({ length: 25 }, (_, i) => i - 12).map(st =>
+                `<option value="${st}" ${st === vm.transpose ? 'selected' : ''}>${st > 0 ? '+' : ''}${st} st</option>`
+              ).join('')}
+            </select>
+          </label>
+          <button class="mb-btn-latch ${vm.isLatchEnabled ? 'active' : ''}" data-help="smart.latch" aria-pressed="${vm.isLatchEnabled}">Latch</button>
         </header>
 
         <!-- 7 Chord Pads -->
         <div class="mb-chord-pad-grid">
           ${vm.pads.map(p => `
-            <div class="mb-pad-card ${p.isLatched ? 'latched' : ''}">
-              <button class="mb-chord-pad" data-slot="${p.slot}" type="button">
-                <span class="mb-pad-num">${p.slot + 1}</span>
-                <strong class="mb-pad-label">${p.label}</strong>
-                <small class="mb-pad-notes">${p.midiLabels.join(' ')}</small>
-              </button>
-              <button class="mb-btn-edit-chord" data-slot="${p.slot}" type="button" aria-label="Edit chord ${p.slot + 1}">✏️</button>
-            </div>
+            <button class="mb-chord-pad ${p.isLatched ? 'latched' : ''}" data-slot="${p.slot}" type="button">
+              <span class="mb-pad-num">${p.slot + 1}</span>
+              <strong class="mb-pad-label">${p.label}</strong>
+              <small class="mb-pad-notes">${p.midiLabels.join(' ')}</small>
+            </button>
           `).join('')}
         </div>
-
-        <!-- Chord Editor Dialog Container -->
-        <div id="mbChordEditorModal"></div>
       </div>
     `;
   }
@@ -488,9 +305,6 @@ export class PlayUI {
   bindSmartKeysHandlers(host) {
     this.listen(host.querySelector('.mb-select-key'), 'change', (e) => {
       smartKeys.setKey(e.target.value);
-    });
-    this.listen(host.querySelector('.mb-select-voicing'), 'change', (e) => {
-      smartKeys.setVoicing(e.target.value);
     });
     this.listen(host.querySelector('.mb-select-transpose'), 'change', (e) => {
       smartKeys.setTranspose(+e.target.value);
@@ -504,7 +318,7 @@ export class PlayUI {
       this.listen(pad, 'pointerdown', (e) => {
         e.preventDefault();
         if (helpSubsystem.isExplainMode) {
-          helpSubsystem.showTopic('smart.key');
+          helpSubsystem.showTopic('smart.pad');
           return;
         }
         const slot = +pad.dataset.slot;
@@ -516,92 +330,27 @@ export class PlayUI {
       this.listen(pad, 'pointerup', onUp);
       this.listen(pad, 'pointercancel', onUp);
     });
-
-    // Edit Chord buttons
-    host.querySelectorAll('.mb-btn-edit-chord').forEach(btn => {
-      this.listen(btn, 'click', () => {
-        this.openChordEditor(+btn.dataset.slot);
-      });
-    });
-  }
-
-  openChordEditor(slot) {
-    const modalHost = this.container.querySelector('#mbChordEditorModal');
-    if (!modalHost) return;
-
-    const chord = smartKeys.chords[slot] || { root: 'C', type: 'Major', custom: '' };
-    modalHost.innerHTML = `
-      <div class="mb-chord-editor-backdrop">
-        <div class="mb-chord-editor-card">
-          <header class="mb-chord-editor-header">
-            <h3>Customize Pad ${slot + 1}</h3>
-            <button class="mb-close-editor" type="button">✕</button>
-          </header>
-          <div class="mb-chord-editor-fields">
-            <label>Root
-              <select class="mb-edit-root">
-                ${NOTES.map(n => `<option value="${n}" ${n === chord.root ? 'selected' : ''}>${n}</option>`).join('')}
-              </select>
-            </label>
-            <label>Chord Type
-              <select class="mb-edit-type">
-                ${Object.keys(SMART_CHORD_TYPES).map(t => `<option value="${t}" ${t === chord.type ? 'selected' : ''}>${t}</option>`).join('')}
-              </select>
-            </label>
-            <label>Custom Semitones (e.g. 0,4,7,11)
-              <input class="mb-edit-custom" type="text" value="${chord.custom || ''}" placeholder="0, 4, 7, 11">
-            </label>
-          </div>
-          <footer class="mb-chord-editor-footer">
-            <button class="mb-btn-save-chord" type="button">Apply to Pad ${slot + 1}</button>
-          </footer>
-        </div>
-      </div>
-    `;
-
-    const close = () => { modalHost.innerHTML = ''; };
-    this.listen(modalHost.querySelector('.mb-close-editor'), 'click', close);
-    this.listen(modalHost.querySelector('.mb-btn-save-chord'), 'click', () => {
-      const root = modalHost.querySelector('.mb-edit-root').value;
-      const type = modalHost.querySelector('.mb-edit-type').value;
-      const custom = modalHost.querySelector('.mb-edit-custom').value;
-      smartKeys.setChord(slot, { root, type, custom });
-      close();
-      this.renderLane();
-    });
   }
 
   buildBassHTML() {
     const vm = this.getBassViewModel();
     return `
       <div class="mb-bass-view">
-        <header class="mb-lane-toolbar">
-          <div class="mb-lane-toolbar-group">
-            <label>Bass Preset
-              <select class="mb-bass-preset-sel">
-                ${['Sub Bass', 'Deep Club Sub', 'Reese Bass', 'Acid Bass', 'FM House Bass', 'Pluck Bass', 'Future Growl'].map(p =>
-                  `<option value="${p}" ${p === vm.preset ? 'selected' : ''}>${p}</option>`
-                ).join('')}
-              </select>
-            </label>
-            <label>Transpose
-              <select class="mb-bass-transpose">
-                ${Array.from({ length: 25 }, (_, i) => i - 12).map(st =>
-                  `<option value="${st}" ${st === vm.transpose ? 'selected' : ''}>${st > 0 ? '+' : ''}${st} st</option>`
-                ).join('')}
-              </select>
-            </label>
-          </div>
-          <button class="mb-btn-bass-latch ${vm.isLatchEnabled ? 'active' : ''}" type="button" aria-pressed="${vm.isLatchEnabled}">
-            🔒 Latch
-          </button>
+        <header class="mb-toolbar">
+          <label data-help="bass.transpose">Transpose
+            <select class="mb-bass-transpose">
+              ${Array.from({ length: 25 }, (_, i) => i - 12).map(st =>
+                `<option value="${st}" ${st === vm.transpose ? 'selected' : ''}>${st > 0 ? '+' : ''}${st} st</option>`
+              ).join('')}
+            </select>
+          </label>
+          <button class="mb-btn-bass-latch ${vm.isLatchEnabled ? 'active' : ''}" aria-pressed="${vm.isLatchEnabled}">Latch</button>
         </header>
-
         <div class="mb-bass-pad-grid">
           ${vm.notes.map(n => `
             <button class="mb-bass-pad ${vm.latchedNote === n.midi ? 'latched' : ''}" data-midi="${n.midi}" type="button">
-              <strong class="mb-bass-pad-name">${n.name}</strong>
-              <small class="mb-bass-pad-label">${midiLabel(n.midi)}</small>
+              <strong>${n.name}</strong>
+              <small>${midiLabel(n.midi)}</small>
             </button>
           `).join('')}
         </div>
@@ -610,9 +359,6 @@ export class PlayUI {
   }
 
   bindBassHandlers(host) {
-    this.listen(host.querySelector('.mb-bass-preset-sel'), 'change', (e) => {
-      bassInstrument.setPreset(e.target.value);
-    });
     this.listen(host.querySelector('.mb-bass-transpose'), 'change', (e) => {
       bassInstrument.setTranspose(+e.target.value);
     });
@@ -637,22 +383,22 @@ export class PlayUI {
     const vm = this.getGuitarViewModel();
     return `
       <div class="mb-guitar-view">
-        <header class="mb-lane-toolbar">
+        <header class="mb-toolbar">
           <button class="mb-guitar-connect-btn ${vm.connected ? 'active' : ''}" type="button">
-            ${vm.connected ? '🔌 Disconnect Rig' : '🎸 Connect Audio Input'}
+            ${vm.connected ? 'Disconnect Rig' : 'Connect Audio Input'}
           </button>
           <span class="mb-guitar-meter-badge ${vm.meter.signalDetected ? 'live' : ''}">${vm.meter.dbv} dB</span>
         </header>
         <div class="mb-guitar-controls">
-          <label>Amp Patch
+          <label>Patch
             <select class="mb-guitar-patch-sel">
               ${['Clean Glass', 'Warm Combo', 'Edge Crunch', 'Arena Lead', 'Ambient Swell', 'Worship Shimmer'].map(p =>
                 `<option value="${p}" ${p === vm.patch ? 'selected' : ''}>${p}</option>`
               ).join('')}
             </select>
           </label>
-          <label>Input Trim <input class="mb-guitar-trim" type="range" min="0" max="1.5" step="0.05" value="${vm.trim}"></label>
-          <label>Tone Clarity <input class="mb-guitar-tone" type="range" min="1000" max="14000" step="500" value="${vm.tone}"></label>
+          <label>Trim <input class="mb-guitar-trim" type="range" min="0" max="1.5" step="0.05" value="${vm.trim}"></label>
+          <label>Tone <input class="mb-guitar-tone" type="range" min="1000" max="14000" step="500" value="${vm.tone}"></label>
         </div>
       </div>
     `;
@@ -681,8 +427,8 @@ export class PlayUI {
     const vm = this.getLeadViewModel();
     return `
       <div class="mb-lead-view">
-        <header class="mb-lane-toolbar">
-          <label>Lead Voice
+        <header class="mb-toolbar">
+          <label>Voice
             <select class="mb-lead-voice-sel">
               ${Object.entries(vm.voiceGroups).map(([grp, voices]) => `
                 <optgroup label="${grp}">
@@ -691,17 +437,17 @@ export class PlayUI {
               `).join('')}
             </select>
           </label>
-          <label>Glide (<span class="mb-glide-val">${vm.glideMs}ms</span>)
+          <label>Glide
             <input class="mb-lead-glide" type="range" min="0" max="300" step="5" value="${vm.glideMs}">
           </label>
-          <label>Pitch Bend
+          <label>Pitch Range
             <select class="mb-lead-range">
-              ${[2, 7, 12].map(r => `<option value="${r}" ${r === vm.pitchRange ? 'selected' : ''}>±${r} st</option>`).join('')}
+              ${[2, 7, 12].map(r => `<option value="${r}" ${r === vm.pitchRange ? 'selected' : ''}>±${r}</option>`).join('')}
             </select>
           </label>
         </header>
 
-        <!-- Strips & Full Piano Keyboard Stage -->
+        <!-- Strips & Keyboard Shell -->
         <div class="mb-lead-perf-shell">
           <aside class="mb-lead-strips">
             <div class="mb-perf-strip pitch" data-help="lead.pitchStrip"><span>PITCH</span></div>
@@ -710,9 +456,6 @@ export class PlayUI {
           <div class="mb-lead-keys-stage">
             ${vm.keyboardModel.whiteKeys.map(w => `
               <div class="mb-key white" data-midi="${w.midi}"><span>${w.label}</span></div>
-            `).join('')}
-            ${vm.keyboardModel.blackKeys.map(b => `
-              <div class="mb-key black" data-midi="${b.midi}" style="left: ${b.leftPct}%; width: ${b.widthPct}%;"></div>
             `).join('')}
           </div>
         </div>
@@ -726,14 +469,12 @@ export class PlayUI {
     });
     this.listen(host.querySelector('.mb-lead-glide'), 'input', (e) => {
       leadInstrument.setGlideMs(+e.target.value);
-      const disp = host.querySelector('.mb-glide-val');
-      if (disp) disp.textContent = `${e.target.value}ms`;
     });
     this.listen(host.querySelector('.mb-lead-range'), 'change', (e) => {
       leadInstrument.setPitchRange(+e.target.value);
     });
 
-    // Pitch strip
+    // Pitch strip drag & spring back
     const pitchStrip = host.querySelector('.mb-perf-strip.pitch');
     if (pitchStrip) {
       let activePointer = null;
@@ -760,7 +501,7 @@ export class PlayUI {
       this.listen(pitchStrip, 'pointercancel', onEnd);
     }
 
-    // Lead keys
+    // Lead Keys pointer events
     host.querySelectorAll('.mb-key').forEach(k => {
       this.listen(k, 'pointerdown', (e) => {
         e.preventDefault();
@@ -776,7 +517,7 @@ export class PlayUI {
   }
 
   // ==========================================================================
-  // 6. EXPANDABLE TOOLS DRAWERS (Arp Lab, Performance Rack)
+  // 4. MODULAR DRAWERS (Arp Lab, Groove Box, Performance Rack)
   // ==========================================================================
 
   renderDrawers() {
@@ -791,29 +532,19 @@ export class PlayUI {
     if (this.openDrawer === 'arp') {
       const vm = this.getArpViewModel();
       drawerHost.innerHTML = `
-        <div class="mb-drawer-panel">
-          <header class="mb-drawer-header"><strong>⚡ Arp Lab (BPM-Locked Arpeggiator)</strong></header>
-          <div class="mb-drawer-body">
-            <label class="mb-toggle-label">
-              <input type="checkbox" class="mb-arp-toggle" ${vm.enabled ? 'checked' : ''}>
-              <span>Enable Arpeggiator</span>
-            </label>
-            <label>Rate
-              <select class="mb-arp-rate">
-                ${vm.rates.map(r => `<option value="${r}" ${r === vm.rate ? 'selected' : ''}>${r}</option>`).join('')}
-              </select>
-            </label>
-            <label>Pattern
-              <select class="mb-arp-pattern">
-                ${vm.patterns.map(p => `<option value="${p}" ${p === vm.pattern ? 'selected' : ''}>${p}</option>`).join('')}
-              </select>
-            </label>
-            <label>Octaves
-              <select class="mb-arp-octaves">
-                ${[1, 2, 3, 4].map(o => `<option value="${o}" ${o === vm.octaves ? 'selected' : ''}>${o}</option>`).join('')}
-              </select>
-            </label>
-          </div>
+        <div class="mb-drawer-arp">
+          <header><strong>Arp Lab</strong></header>
+          <label>Power <input type="checkbox" class="mb-arp-toggle" ${vm.enabled ? 'checked' : ''}></label>
+          <label>Rate
+            <select class="mb-arp-rate">
+              ${vm.rates.map(r => `<option value="${r}" ${r === vm.rate ? 'selected' : ''}>${r}</option>`).join('')}
+            </select>
+          </label>
+          <label>Pattern
+            <select class="mb-arp-pattern">
+              ${vm.patterns.map(p => `<option value="${p}" ${p === vm.pattern ? 'selected' : ''}>${p}</option>`).join('')}
+            </select>
+          </label>
         </div>
       `;
       this.listen(drawerHost.querySelector('.mb-arp-toggle'), 'change', (e) => {
@@ -825,21 +556,36 @@ export class PlayUI {
       this.listen(drawerHost.querySelector('.mb-arp-pattern'), 'change', (e) => {
         arpEngine.setPattern(e.target.value);
       });
-      this.listen(drawerHost.querySelector('.mb-arp-octaves'), 'change', (e) => {
-        arpEngine.setOctaves(+e.target.value);
+    } else if (this.openDrawer === 'groove') {
+      const vm = this.getGrooveBoxViewModel();
+      drawerHost.innerHTML = `
+        <div class="mb-drawer-groove">
+          <header><strong>Groove Box</strong></header>
+          <label>Style
+            <select class="mb-groove-style">
+              ${vm.styles.map(s => `<option value="${s}" ${s === vm.style ? 'selected' : ''}>${s}</option>`).join('')}
+            </select>
+          </label>
+          <label>Energy: ${vm.energy}</label>
+          <button class="mb-groove-regen" type="button">Regenerate</button>
+        </div>
+      `;
+      this.listen(drawerHost.querySelector('.mb-groove-style'), 'change', (e) => {
+        grooveBox.loadStyle(e.target.value);
+      });
+      this.listen(drawerHost.querySelector('.mb-groove-regen'), 'click', () => {
+        grooveBox.loadStyle(grooveBox.style, grooveBox.energy, true);
       });
     } else if (this.openDrawer === 'rack') {
       const vm = this.getPerformanceRackViewModel();
       drawerHost.innerHTML = `
-        <div class="mb-drawer-panel">
-          <header class="mb-drawer-header"><strong>🎛 M&amp;B Performance Rack (Tone &amp; FX)</strong></header>
-          <div class="mb-drawer-body">
-            <label>Rack Board
-              <select class="mb-rack-board">
-                ${vm.boards.map(b => `<option value="${b}" ${b === vm.board ? 'selected' : ''}>${b}</option>`).join('')}
-              </select>
-            </label>
-          </div>
+        <div class="mb-drawer-rack">
+          <header><strong>M&B Performance Rack</strong></header>
+          <label>Board
+            <select class="mb-rack-board">
+              ${vm.boards.map(b => `<option value="${b}" ${b === vm.board ? 'selected' : ''}>${b}</option>`).join('')}
+            </select>
+          </label>
         </div>
       `;
       this.listen(drawerHost.querySelector('.mb-rack-board'), 'change', (e) => {

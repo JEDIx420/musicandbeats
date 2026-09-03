@@ -441,16 +441,18 @@ export class LeadInstrument {
   applyBackingDucking(isLeadActive) {
     const ctx = this.engine.context;
     if (!ctx) return;
-    // Ducking: when Lead solo is played, gently duck drum and synth buses for mix clarity
+    // In V38/V39, playing Lead gently ducks backing looper tracks to make solo cut through
     try {
-      if (this.engine.synthDry?.gain) {
-        this.engine.synthDry.gain.cancelScheduledValues(ctx.currentTime);
-        this.engine.synthDry.gain.setTargetAtTime(isLeadActive ? 0.82 : 0.90, ctx.currentTime, 0.025);
+      if (window.MB_V34_LOOPER?.state?.playbackBus?.gain) {
+        const bus = window.MB_V34_LOOPER.state.playbackBus.gain;
+        bus.cancelScheduledValues(ctx.currentTime);
+        bus.setTargetAtTime(isLeadActive ? 0.90 : 1.0, ctx.currentTime, 0.025);
       }
-      if (this.engine.drumBus?.gain) {
-        const base = (appState.mix?.beats ?? 0.86) * 0.78;
-        this.engine.drumBus.gain.cancelScheduledValues(ctx.currentTime);
-        this.engine.drumBus.gain.setTargetAtTime(isLeadActive ? base * 0.88 : base, ctx.currentTime, 0.025);
+      if (window.MB_V34_LOOPER?.state?.beatBus?.gain) {
+        const beatBus = window.MB_V34_LOOPER.state.beatBus.gain;
+        const base = appState.mix?.beats ?? 0.86;
+        beatBus.cancelScheduledValues(ctx.currentTime);
+        beatBus.setTargetAtTime(base * (isLeadActive ? 0.88 : 1.0), ctx.currentTime, 0.025);
       }
     } catch {}
   }

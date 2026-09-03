@@ -30,7 +30,7 @@
 > **Live:** https://jedix420.github.io/musicandbeats/  
 > **Source:** https://github.com/JEDIx420/musicandbeats
 
-Music & Beats is an open-source, local-first music workstation for quickly turning an idea into a playable groove or a multi-layer loop. Built on a clean canonical modular architecture (`src/`) with modern Web Audio API and dedicated `AudioWorklet` timing, synthesis, effects, loop capture, and project storage run entirely in the browser without servers or user accounts.
+Music & Beats is an open-source, local-first music workstation for quickly turning an idea into a playable groove or a multi-layer loop. There is no account requirement and no backend required for the core workstation: synthesis, effects, loop capture and project storage happen in the browser.
 
 If you like the project, ⭐ **star the repo**. If you want to change it, **fork it and make your own version**.
 

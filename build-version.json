@@ -1,5 +1,5 @@
 {
-  "build": "v40",
-  "contains": "Canonical modular architecture: pure Web Audio scheduling, single stylesheet, full V39 instrument catalog, zero legacy patch files",
-  "publishedAt": "2026-09-03T13:30:00+05:30"
+  "build": "v39",
+  "contains": "Keys/Bass transpose, editable extended chords, Lead glide, landscape-aware Pitch/Mod performance strips, and expanded Western GeneralUser GS voices",
+  "publishedAt": "2026-08-29T17:30:00+05:30"
 }
