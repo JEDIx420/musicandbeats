@@ -1,0 +1,683 @@
+/**
+ * Music & Beats — Canonical Design System & Stylesheet (V39)
+ *
+ * Consolidates the complete 34-file legacy CSS cascade into a single, cohesive,
+ * semantic design system without any versioned class dependencies (.v34-, .v35-, etc.).
+ *
+ * Structure:
+ * 1. Design Tokens & Root Variables
+ * 2. Reset & Base Typography
+ * 3. Application Shell & Top Navigation
+ * 4. Shared Controls (Buttons, Inputs, Selects, Sliders, Badges)
+ * 5. Play Performance Workspace (Smart Keys, Bass, Guitar, Lead)
+ * 6. Pitch Bend & Modulation Performance Strips
+ * 7. Modular Drawers (Arp Lab, Groove Box, Performance Rack)
+ * 8. Live Looper & Multi-Track Session (Timeline, Progress Ring, Track Strips)
+ * 9. Help Center & Accessible Dialog Modals
+ * 10. Motion & Animation (with prefers-reduced-motion)
+ * 11. Responsive Breakpoints & Safe Areas (Mobile, Tablet, Desktop)
+ */
+
+/* ==========================================================================
+   1. DESIGN TOKENS & ROOT VARIABLES
+   ========================================================================== */
+
+:root {
+  color-scheme: dark;
+
+  /* Surfaces & Backgrounds */
+  --mb-bg: #07080a;
+  --mb-surface-1: #101218;
+  --mb-surface-2: #171a22;
+  --mb-surface-3: #1f232d;
+  --mb-surface-glass: rgba(16, 18, 24, 0.85);
+
+  /* Lines & Borders */
+  --mb-line: rgba(255, 255, 255, 0.08);
+  --mb-line-strong: rgba(255, 255, 255, 0.16);
+
+  /* Text & Typography */
+  --mb-text-primary: #f7f8fb;
+  --mb-text-muted: #9299a8;
+  --mb-text-faint: rgba(255, 255, 255, 0.40);
+
+  /* Brand & Accent Palettes */
+  --mb-accent: #8b7cff;
+  --mb-accent-hover: #9c8fff;
+  --mb-accent-glow: rgba(139, 124, 255, 0.22);
+  --mb-accent-cyan: #5fb7ff;
+  --mb-accent-pink: #f47eac;
+
+  /* State Colors */
+  --mb-success: #58d59a;
+  --mb-warning: #f5b85c;
+  --mb-danger: #ff646e;
+
+  /* Spacing & Radii */
+  --mb-radius-sm: 8px;
+  --mb-radius-md: 12px;
+  --mb-radius-lg: 18px;
+  --mb-radius-full: 9999px;
+
+  /* Shadows */
+  --mb-shadow-card: 0 16px 48px rgba(0, 0, 0, 0.42);
+  --mb-shadow-glow: 0 0 20px rgba(139, 124, 255, 0.35);
+
+  /* Device Safe Areas */
+  --mb-safe-top: env(safe-area-inset-top, 0px);
+  --mb-safe-bottom: env(safe-area-inset-bottom, 0px);
+  --mb-safe-left: env(safe-area-inset-left, 0px);
+  --mb-safe-right: env(safe-area-inset-right, 0px);
+}
+
+/* ==========================================================================
+   2. RESET & BASE TYPOGRAPHY
+   ========================================================================== */
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html {
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
+  background-color: var(--mb-bg);
+  color: var(--mb-text-primary);
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 72% -8%, rgba(139, 124, 255, 0.14), transparent 28rem),
+    radial-gradient(circle at 5% 50%, rgba(95, 183, 255, 0.07), transparent 30rem),
+    var(--mb-bg);
+  padding-bottom: var(--mb-safe-bottom);
+  overflow-x: hidden;
+}
+
+h1, h2, h3, p {
+  margin: 0;
+}
+
+button, input, select {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  border: 1px solid var(--mb-line);
+  background: var(--mb-surface-2);
+  border-radius: var(--mb-radius-md);
+  transition: transform 0.08s ease, background 0.15s ease, border-color 0.15s ease;
+}
+
+button:active {
+  transform: scale(0.98);
+}
+
+button:focus-visible, input:focus-visible, select:focus-visible {
+  outline: 2px solid var(--mb-accent);
+  outline-offset: 2px;
+}
+
+/* ==========================================================================
+   3. APPLICATION SHELL & TOP NAVIGATION
+   ========================================================================== */
+
+.mb-app-shell {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: calc(10px + var(--mb-safe-top)) 16px calc(24px + var(--mb-safe-bottom));
+}
+
+.mb-navbar {
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 4px;
+}
+
+.mb-brand-btn {
+  background: transparent;
+  border: none;
+  font-size: 18px;
+  letter-spacing: -0.02em;
+  color: var(--mb-text-primary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+}
+
+.mb-nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.mb-nav-btn {
+  height: 38px;
+  padding: 0 14px;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: var(--mb-radius-full);
+}
+
+.mb-nav-btn.active {
+  background: var(--mb-accent);
+  border-color: var(--mb-accent);
+  color: #fff;
+  box-shadow: 0 0 14px var(--mb-accent-glow);
+}
+
+.mb-btn-panic {
+  background: rgba(255, 100, 110, 0.15);
+  border-color: rgba(255, 100, 110, 0.35);
+  color: var(--mb-danger);
+}
+
+.mb-btn-explain.active {
+  background: var(--mb-warning);
+  border-color: var(--mb-warning);
+  color: #000;
+}
+
+/* ==========================================================================
+   4. SHARED CONTROLS (Selects, Sliders, Buttons)
+   ========================================================================== */
+
+.mb-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 12px 16px;
+  background: var(--mb-surface-1);
+  border-bottom: 1px solid var(--mb-line);
+}
+
+.mb-toolbar label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--mb-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+select {
+  height: 38px;
+  padding: 0 30px 0 12px;
+  background: var(--mb-surface-2);
+  border: 1px solid var(--mb-line);
+  border-radius: var(--mb-radius-sm);
+  appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, #818899 50%),
+                    linear-gradient(135deg, #818899 50%, transparent 50%);
+  background-position: calc(100% - 15px) 16px, calc(100% - 10px) 16px;
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+}
+
+input[type="range"] {
+  accent-color: var(--mb-accent);
+}
+
+/* ==========================================================================
+   5. PLAY WORKSPACE & INSTRUMENT LANES
+   ========================================================================== */
+
+.mb-play-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 10px;
+}
+
+.mb-instrument-tabs {
+  display: flex;
+  gap: 8px;
+}
+
+.mb-tab-btn {
+  flex: 1;
+  height: 44px;
+  font-size: 14px;
+  font-weight: 600;
+  border-radius: var(--mb-radius-md);
+  color: var(--mb-text-muted);
+}
+
+.mb-tab-btn.active {
+  background: var(--mb-surface-3);
+  border-color: var(--mb-accent);
+  color: var(--mb-text-primary);
+}
+
+.mb-lane-workspace {
+  background: var(--mb-surface-1);
+  border: 1px solid var(--mb-line);
+  border-radius: var(--mb-radius-lg);
+  overflow: hidden;
+  box-shadow: var(--mb-shadow-card);
+}
+
+/* --- Smart Keys --- */
+.mb-chord-pad-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 8px;
+  padding: 16px;
+}
+
+.mb-chord-pad {
+  min-height: 80px;
+  padding: 10px;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  border-radius: var(--mb-radius-md);
+  background: var(--mb-surface-2);
+  touch-action: none;
+}
+
+.mb-chord-pad.latched {
+  border-color: var(--mb-accent-cyan);
+  background: rgba(95, 183, 255, 0.15);
+}
+
+.mb-chord-pad:active {
+  background: var(--mb-accent-glow);
+  border-color: var(--mb-accent);
+}
+
+.mb-pad-num {
+  font-size: 10px;
+  opacity: 0.55;
+}
+
+.mb-pad-label {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.mb-pad-notes {
+  font-size: 9px;
+  color: var(--mb-text-muted);
+}
+
+.mb-btn-latch.active, .mb-btn-bass-latch.active {
+  background: var(--mb-accent-cyan);
+  color: #000;
+  border-color: var(--mb-accent-cyan);
+}
+
+/* --- Bass --- */
+.mb-bass-pad-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  padding: 18px;
+}
+
+.mb-bass-pad {
+  min-height: 90px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 6px;
+  touch-action: none;
+}
+
+.mb-bass-pad.latched {
+  border-color: var(--mb-accent);
+  background: var(--mb-accent-glow);
+}
+
+/* --- Guitar --- */
+.mb-guitar-controls {
+  padding: 18px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+.mb-guitar-meter-badge {
+  padding: 4px 10px;
+  border-radius: var(--mb-radius-full);
+  background: var(--mb-surface-3);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.mb-guitar-meter-badge.live {
+  background: var(--mb-success);
+  color: #000;
+}
+
+/* --- Lead Keyboard --- */
+.mb-lead-perf-shell {
+  display: grid;
+  grid-template-columns: 86px 1fr;
+  gap: 12px;
+  padding: 16px;
+}
+
+.mb-lead-strips {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.mb-perf-strip {
+  height: 200px;
+  border-radius: var(--mb-radius-full);
+  border: 1px solid var(--mb-line);
+  background: var(--mb-surface-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  touch-action: none;
+  user-select: none;
+  position: relative;
+}
+
+.mb-perf-strip span {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  color: var(--mb-text-faint);
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+}
+
+.mb-lead-keys-stage {
+  height: 200px;
+  display: flex;
+  position: relative;
+  background: #050608;
+  border-radius: var(--mb-radius-md);
+  overflow: hidden;
+  border: 1px solid var(--mb-line);
+}
+
+.mb-key.white {
+  flex: 1;
+  background: linear-gradient(#fbfbfc, #ced1d7);
+  border-right: 1px solid #9aa0a6;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: 8px;
+  color: #333;
+  font-size: 10px;
+  font-weight: 700;
+  touch-action: none;
+}
+
+.mb-key.white:active, .mb-key.white.active {
+  background: var(--mb-accent);
+  color: #fff;
+}
+
+/* ==========================================================================
+   6. MODULAR DRAWERS (Arp Lab, Groove Box, Performance Rack)
+   ========================================================================== */
+
+.mb-drawer-bar {
+  display: flex;
+  gap: 8px;
+}
+
+.mb-drawer-btn {
+  flex: 1;
+  height: 40px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--mb-text-muted);
+}
+
+.mb-drawer-btn.active {
+  background: var(--mb-surface-2);
+  color: var(--mb-accent);
+  border-color: var(--mb-accent);
+}
+
+.mb-drawer-container {
+  background: var(--mb-surface-1);
+  border: 1px solid var(--mb-line);
+  border-radius: var(--mb-radius-lg);
+  empty-cells: hide;
+}
+
+.mb-drawer-container:empty {
+  display: none;
+}
+
+.mb-drawer-arp, .mb-drawer-groove, .mb-drawer-rack {
+  padding: 16px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+/* ==========================================================================
+   7. LIVE LOOPER & MULTI-TRACK SESSION
+   ========================================================================== */
+
+.mb-record-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.mb-record-transport {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 18px;
+  background: var(--mb-surface-1);
+  border: 1px solid var(--mb-line);
+  border-radius: var(--mb-radius-lg);
+}
+
+.mb-btn-record-play {
+  height: 46px;
+  padding: 0 20px;
+  font-weight: 700;
+  border-radius: var(--mb-radius-full);
+}
+
+.mb-btn-record-play.playing {
+  background: var(--mb-accent);
+  color: #fff;
+}
+
+.mb-tempo-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--mb-surface-2);
+  border-radius: var(--mb-radius-md);
+  padding: 2px 8px;
+  border: 1px solid var(--mb-line);
+}
+
+.mb-timeline-display {
+  padding: 16px;
+  background: var(--mb-surface-1);
+  border: 1px solid var(--mb-line);
+  border-radius: var(--mb-radius-lg);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.mb-clock-badge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 60px;
+}
+
+.mb-step-indicator {
+  font-size: 20px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.mb-progress-bar-track {
+  flex: 1;
+  height: 10px;
+  background: var(--mb-surface-2);
+  border-radius: var(--mb-radius-full);
+  overflow: hidden;
+}
+
+.mb-progress-bar-fill {
+  height: 100%;
+  background: var(--mb-accent);
+  transition: width 0.05s linear;
+}
+
+.mb-tracks-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mb-track-strip {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 18px;
+  background: var(--mb-surface-1);
+  border: 1px solid var(--mb-line);
+  border-radius: var(--mb-radius-md);
+}
+
+.mb-track-strip.muted {
+  opacity: 0.55;
+}
+
+.mb-track-strip.recording {
+  border-color: var(--mb-danger);
+  background: rgba(255, 100, 110, 0.1);
+}
+
+.mb-track-name {
+  font-weight: 700;
+  min-width: 90px;
+}
+
+/* ==========================================================================
+   8. HELP & ACCESSIBLE DIALOG MODALS
+   ========================================================================== */
+
+.mb-help-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  display: grid;
+  place-items: center;
+  z-index: 100;
+  padding: 16px;
+}
+
+.mb-help-card {
+  width: min(500px, 100%);
+  background: var(--mb-surface-1);
+  border: 1px solid var(--mb-line-strong);
+  border-radius: var(--mb-radius-lg);
+  padding: 24px;
+  box-shadow: var(--mb-shadow-card);
+}
+
+.mb-help-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 16px;
+}
+
+.mb-help-kicker {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  color: var(--mb-accent);
+  text-transform: uppercase;
+}
+
+.mb-help-body {
+  line-height: 1.55;
+  color: var(--mb-text-muted);
+}
+
+.mb-help-tip {
+  margin-top: 14px;
+  padding: 10px 14px;
+  border-radius: var(--mb-radius-md);
+  background: rgba(245, 184, 92, 0.1);
+  border: 1px solid rgba(245, 184, 92, 0.25);
+  color: var(--mb-warning);
+  font-size: 13px;
+  display: flex;
+  gap: 8px;
+}
+
+.mb-help-footer {
+  margin-top: 20px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* ==========================================================================
+   9. MOTION & REDUCED MOTION PREFERENCES
+   ========================================================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ==========================================================================
+   10. RESPONSIVE BREAKPOINTS (Mobile & Tablet)
+   ========================================================================== */
+
+@media (max-width: 768px) {
+  .mb-chord-pad-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+
+  .mb-lead-perf-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .mb-lead-strips {
+    height: 120px;
+  }
+
+  .mb-perf-strip {
+    height: 100%;
+  }
+
+  .mb-record-transport {
+    flex-wrap: wrap;
+  }
+}
