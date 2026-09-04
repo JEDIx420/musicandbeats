@@ -8,7 +8,7 @@ const voiceGroups={'Pianos & Keys':['Grand Piano','Bright Piano','Electric Grand
 const hidden=new Set(['Bansuri Lead','Sitar Lead','Sample Shakuhachi','Sample Sitar']);
 const chordTypes={'Major':[0,4,7],'Minor':[0,3,7],'Diminished':[0,3,6],'Augmented':[0,4,8],'Sus2':[0,2,7],'Sus4':[0,5,7],'Power 5':[0,7,12],'6':[0,4,7,9],'m6':[0,3,7,9],'7':[0,4,7,10],'maj7':[0,4,7,11],'m7':[0,3,7,10],'dim7':[0,3,6,9],'m7b5':[0,3,6,10],'add9':[0,4,7,14],'madd9':[0,3,7,14],'9':[0,4,7,10,14],'maj9':[0,4,7,11,14],'m9':[0,3,7,10,14],'11':[0,4,7,10,14,17],'m11':[0,3,7,10,14,17],'13':[0,4,7,10,14,17,21],'m13':[0,3,7,10,14,17,21],'6/9':[0,4,7,9,14],'7sus4':[0,5,7,10],'mMaj7':[0,3,7,11],'maj7#11':[0,4,7,11,18],'7b9':[0,4,7,10,13],'7#9':[0,4,7,10,15],'7b5':[0,4,6,10],'7#5':[0,4,8,10],'add11':[0,4,7,17],'madd11':[0,3,7,17]};
 const suffix={Major:'',Minor:'m',Diminished:'°',Augmented:'+',Sus2:'sus2',Sus4:'sus4','Power 5':'5','6':'6','m6':'m6','7':'7',maj7:'maj7',m7:'m7',dim7:'dim7',m7b5:'m7♭5',add9:'add9',madd9:'madd9','9':'9',maj9:'maj9',m9:'m9','11':'11',m11:'m11','13':'13',m13:'m13','6/9':'6/9','7sus4':'7sus4',mMaj7:'mMaj7','maj7#11':'maj7♯11','7b9':'7♭9','7#9':'7♯9','7b5':'7♭5','7#5':'7♯5',add11:'add11',madd11:'madd11',Custom:' custom'};
-const S={transpose:{keys:0,bass:0},chords:[],chordsCustomized:false,chordKey:tracks.keys.key,editorSlot:0,editorOpen:false,slide:true,glideMs:85,pitchRange:2,pitchBend:0,mod:0,leadVoice:'Grand Piano',keyPointers:new Map(),keyLatch:null,heldShortcuts:new Map()};
+const S={transpose:{keys:0,bass:0},chords:[],chordsCustomized:false,chordKey:tracks.keys.key,editorSlot:0,editorOpen:false,slide:true,glideMs:85,pitchRange:2,pitchBend:0,mod:0,leadVoice:'Grand Piano',keyPointers:new Map(),keyLatch:null,heldShortcuts:new Map(),bassPointers:new Map(),bassLatch:null,heldBassShortcuts:new Map()};
 
 function getUICollapse(key){try{const v=JSON.parse(localStorage.getItem('musicandbeats:ui:controls')||'{}');return !!v[key]}catch{return false}}
 function setUICollapse(key,val){try{const v=JSON.parse(localStorage.getItem('musicandbeats:ui:controls')||'{}');v[key]=!!val;localStorage.setItem('musicandbeats:ui:controls',JSON.stringify(v))}catch{}}
@@ -24,7 +24,11 @@ function label(c){return `${window.FLAT?.[c.root]||c.root}${suffix[c.type]??c.ty
 function meta(now){if(L.recordingLane==='keys')return{startTime:L.recordStartTime,startStep:L.recordStartStep,boundary:L.recordStartTime+V.totalSteps()*V.stepSeconds()};const g=L.captureGrace;if(g?.lane==='keys'&&now<=g.boundary)return{startTime:g.startTime,startStep:g.startStep,boundary:g.boundary};return null}
 function capture(h,end){if(h.captured||!h.meta)return;const sec=V.stepSeconds(),m=h.meta,e=Math.min(end,m.boundary),s=Math.max(h.startedAt,m.startTime);if(e<=m.startTime){h.captured=true;return}let a=Math.round((s-m.startTime)/sec),b=Math.round((e-m.startTime)/sec);a=clamp(a,0,V.totalSteps()-1);b=clamp(Math.max(a+1,b),a+1,V.totalSteps());tracks.keys.events.push({step:V.wrapStep(m.startStep+a),durationSteps:b-a,midis:[...h.midis],preset:h.preset});h.captured=true;V.persist()}
 function stopKey(h,end=ctx?.currentTime||0){if(!h)return;capture(h,end);h.voices?.forEach(v=>{try{v.stop()}catch{}});h.button?.classList.remove('active','v36-latched');if(S.keyLatch===h)S.keyLatch=null}
-function releaseKeys(){for(const h of S.keyPointers.values())stopKey(h);S.keyPointers.clear();stopKey(S.keyLatch);S.keyLatch=null;for(const h of S.heldShortcuts.values())stopKey(h);S.heldShortcuts.clear()}
+function metaBass(now){if(L.recordingLane==='bass')return{startTime:L.recordStartTime,startStep:L.recordStartStep,boundary:L.recordStartTime+V.totalSteps()*V.stepSeconds()};const g=L.captureGrace;if(g?.lane==='bass'&&now<=g.boundary)return{startTime:g.startTime,startStep:g.startStep,boundary:g.boundary};return null}
+function captureBass(h,end){if(h.captured||!h.meta)return;const sec=V.stepSeconds(),m=h.meta,e=Math.min(end,m.boundary),s=Math.max(h.startedAt,m.startTime);if(e<=m.startTime){h.captured=true;return}let a=Math.round((s-m.startTime)/sec),b=Math.round((e-m.startTime)/sec);a=clamp(a,0,V.totalSteps()-1);b=clamp(Math.max(a+1,b),a+1,V.totalSteps());tracks.bass.events.push({step:V.wrapStep(m.startStep+a),durationSteps:b-a,midis:[...h.midis],preset:h.preset});h.captured=true;V.persist()}
+function stopBass(h,end=ctx?.currentTime||0){if(!h)return;captureBass(h,end);h.voices?.forEach(v=>{try{v.stop()}catch{}});h.button?.classList.remove('active','v36-latched');if(S.bassLatch===h)S.bassLatch=null}
+function releaseBass(){for(const h of S.bassPointers.values())stopBass(h);S.bassPointers.clear();stopBass(S.bassLatch);S.bassLatch=null;for(const h of S.heldBassShortcuts.values())stopBass(h);S.heldBassShortcuts.clear()}
+function releaseKeys(){for(const h of S.keyPointers.values())stopKey(h);S.keyPointers.clear();stopKey(S.keyLatch);S.keyLatch=null;for(const h of S.heldShortcuts.values())stopKey(h);S.heldShortcuts.clear();releaseBass()}
 
 function playSampleBuffer(m,preset,vol=0.76,outNode=null){
   const ac=outNode?.context||ctx;
@@ -108,16 +112,53 @@ function startChordOnPad(b){
   b.classList.add('active');return h;
 }
 
+function startBassOnPad(b){
+  if(!b||!ctx)return;
+  const midi=+b.dataset.midi;
+  if(!Number.isFinite(midi))return;
+  const preset=tracks.bass.sound,now=ctx.currentTime;
+  const targetDest=(L?.playbackBus?.context===ctx)?L.playbackBus:(synthBus?.context===ctx?synthBus:ctx.destination);
+  if(V.extra.latchBass){
+    if(S.bassLatch?.button===b){stopBass(S.bassLatch,now);return}
+    if(S.bassLatch)stopBass(S.bassLatch,now);
+    window.MB_V36?.releaseLane?.('bass');
+    const voice=startVoice(midi,preset,.84,targetDest);
+    const h={button:b,midis:[midi],preset,voices:voice?[voice]:[],startedAt:now,meta:metaBass(now),captured:false};
+    S.bassLatch=h;b.classList.add('active','v36-latched');return h;
+  }
+  const voice=startVoice(midi,preset,.84,targetDest);
+  const h={button:b,midis:[midi],preset,voices:voice?[voice]:[],startedAt:now,meta:metaBass(now),captured:false};
+  b.classList.add('active');return h;
+}
+
 function down(e){
-  const b=e.target.closest?.('#v34ChordPads .v34-performance-pad[data-v39-midis]');if(!b)return;
-  e.preventDefault();e.stopImmediatePropagation();primeAudio();if(!ctx)return;
-  const h=startChordOnPad(b);
-  if(h&&!V.extra.latchKeys){
-    S.keyPointers.set(e.pointerId,h);
-    try{b.setPointerCapture(e.pointerId)}catch{}
+  const kb=e.target.closest?.('#v34ChordPads .v34-performance-pad[data-v39-midis]');
+  if(kb){
+    e.preventDefault();e.stopImmediatePropagation();primeAudio();if(!ctx)return;
+    const h=startChordOnPad(kb);
+    if(h&&!V.extra.latchKeys){
+      S.keyPointers.set(e.pointerId,h);
+      try{kb.setPointerCapture(e.pointerId)}catch{}
+    }
+    return;
+  }
+  const bb=e.target.closest?.('#v34BassPads .v34-bass-pad');
+  if(bb){
+    e.preventDefault();e.stopImmediatePropagation();primeAudio();if(!ctx)return;
+    const h=startBassOnPad(bb);
+    if(h&&!V.extra.latchBass){
+      S.bassPointers.set(e.pointerId,h);
+      try{bb.setPointerCapture(e.pointerId)}catch{}
+    }
+    return;
   }
 }
-function up(e){const h=S.keyPointers.get(e.pointerId);if(!h)return;e.preventDefault();e.stopImmediatePropagation();stopKey(h);S.keyPointers.delete(e.pointerId)}
+function up(e){
+  const kh=S.keyPointers.get(e.pointerId);
+  if(kh){e.preventDefault();e.stopImmediatePropagation();stopKey(kh);S.keyPointers.delete(e.pointerId)}
+  const bh=S.bassPointers.get(e.pointerId);
+  if(bh){e.preventDefault();e.stopImmediatePropagation();stopBass(bh);S.bassPointers.delete(e.pointerId)}
+}
 document.addEventListener('pointerdown',down,true);['pointerup','pointercancel','lostpointercapture'].forEach(t=>document.addEventListener(t,up,true));
 
 function handleKeyDown(e){
@@ -126,37 +167,62 @@ function handleKeyDown(e){
   if(['input','textarea','select'].includes(tag)||document.activeElement?.isContentEditable)return;
   if(e.metaKey||e.ctrlKey||e.altKey)return;
   let padIdx=-1;
-  if(e.code.startsWith('Digit')){const d=parseInt(e.code.slice(5),10);if(d>=1&&d<=7)padIdx=d-1}
-  else if(e.code.startsWith('Numpad')){const d=parseInt(e.code.slice(6),10);if(d>=1&&d<=7)padIdx=d-1}
+  if(e.code.startsWith('Digit')){const d=parseInt(e.code.slice(5),10);if(d>=1&&d<=8)padIdx=d-1}
+  else if(e.code.startsWith('Numpad')){const d=parseInt(e.code.slice(6),10);if(d>=1&&d<=8)padIdx=d-1}
   if(padIdx<0)return;
-  const pads=document.querySelectorAll('#v34ChordPads .v34-performance-pad');
-  const pad=pads[padIdx];if(!pad)return;
-  e.preventDefault();primeAudio();
-  if(V.extra.latchKeys){
-    startChordOnPad(pad);
-  }else{
-    if(S.heldShortcuts.has(padIdx))return;
-    const h=startChordOnPad(pad);
-    if(h)S.heldShortcuts.set(padIdx,h);
+
+  const bassPads=document.querySelectorAll('#v34BassPads .v34-bass-pad');
+  if(bassPads.length&&(L.activeLane==='bass'||!document.querySelector('#v34ChordPads'))){
+    const pad=bassPads[padIdx];if(!pad)return;
+    e.preventDefault();primeAudio();
+    if(V.extra.latchBass){
+      startBassOnPad(pad);
+    }else{
+      if(S.heldBassShortcuts.has(padIdx))return;
+      const h=startBassOnPad(pad);
+      if(h)S.heldBassShortcuts.set(padIdx,h);
+    }
+    return;
+  }
+
+  const keyPads=document.querySelectorAll('#v34ChordPads .v34-performance-pad');
+  if(keyPads.length&&(L.activeLane==='keys'||!document.querySelector('#v34BassPads'))){
+    const pad=keyPads[padIdx];if(!pad)return;
+    e.preventDefault();primeAudio();
+    if(V.extra.latchKeys){
+      startChordOnPad(pad);
+    }else{
+      if(S.heldShortcuts.has(padIdx))return;
+      const h=startChordOnPad(pad);
+      if(h)S.heldShortcuts.set(padIdx,h);
+    }
+    return;
   }
 }
 function handleKeyUp(e){
   const tag=document.activeElement?.tagName?.toLowerCase();
   if(['input','textarea','select'].includes(tag)||document.activeElement?.isContentEditable)return;
   let padIdx=-1;
-  if(e.code.startsWith('Digit')){const d=parseInt(e.code.slice(5),10);if(d>=1&&d<=7)padIdx=d-1}
-  else if(e.code.startsWith('Numpad')){const d=parseInt(e.code.slice(6),10);if(d>=1&&d<=7)padIdx=d-1}
+  if(e.code.startsWith('Digit')){const d=parseInt(e.code.slice(5),10);if(d>=1&&d<=8)padIdx=d-1}
+  else if(e.code.startsWith('Numpad')){const d=parseInt(e.code.slice(6),10);if(d>=1&&d<=8)padIdx=d-1}
   if(padIdx<0)return;
-  if(V.extra.latchKeys)return;
-  const h=S.heldShortcuts.get(padIdx);
-  if(h){stopKey(h);S.heldShortcuts.delete(padIdx)}
+
+  if(S.heldBassShortcuts.has(padIdx)){
+    const h=S.heldBassShortcuts.get(padIdx);
+    if(h){stopBass(h);S.heldBassShortcuts.delete(padIdx)}
+  }
+
+  if(S.heldShortcuts.has(padIdx)){
+    const h=S.heldShortcuts.get(padIdx);
+    if(h){stopKey(h);S.heldShortcuts.delete(padIdx)}
+  }
 }
 window.addEventListener('keydown',handleKeyDown,true);
 window.addEventListener('keyup',handleKeyUp,true);
 
-function setTranspose(lane,n){n=clamp(+n||0,-12,12);const d=n-S.transpose[lane];if(!d)return;if(lane==='keys')releaseKeys();else window.MB_V36?.releaseLane?.('bass');tracks[lane].events=(tracks[lane].events||[]).map(e=>({...e,midis:(e.midis||[]).map(m=>clamp(+m+d,0,127))}));S.transpose[lane]=n;persist();V.persist();decorate()}
+function setTranspose(lane,n){n=clamp(+n||0,-12,12);const d=n-S.transpose[lane];if(!d)return;if(lane==='keys')releaseKeys();else releaseBass();tracks[lane].events=(tracks[lane].events||[]).map(e=>({...e,midis:(e.midis||[]).map(m=>clamp(+m+d,0,127))}));S.transpose[lane]=n;persist();V.persist();decorate()}
 const tSelect=lane=>`<label class="v39-transpose">Transpose<select id="v39Transpose${lane==='keys'?'Keys':'Bass'}">${Array.from({length:25},(_,i)=>i-12).map(n=>`<option value="${n}" ${n===S.transpose[lane]?'selected':''}>${n>0?'+':''}${n} st</option>`).join('')}</select></label>`;
-function bassPads(){document.querySelectorAll('#v34BassPads .v34-bass-pad').forEach(b=>{if(!b.dataset.v39BaseMidi)b.dataset.v39BaseMidi=b.dataset.midi;const m=clamp(+b.dataset.v39BaseMidi+S.transpose.bass,0,127);b.dataset.midi=m;const q=b.querySelector('strong'),txt=midiLabel(m);if(q&&q.textContent!==txt)q.textContent=txt})}
+function bassPads(){document.querySelectorAll('#v34BassPads .v34-bass-pad').forEach((b,i)=>{if(!b.dataset.v39BaseMidi)b.dataset.v39BaseMidi=b.dataset.midi;const m=clamp(+b.dataset.v39BaseMidi+S.transpose.bass,0,127);b.dataset.midi=m;const q=b.querySelector('strong'),txt=midiLabel(m);if(q&&q.textContent!==txt)q.textContent=txt;let cap=b.querySelector('.v39-keycap');if(!cap){cap=document.createElement('span');cap.className='v39-keycap';cap.textContent=String(i+1);b.appendChild(cap)}})}
 function bass(){
   const w=document.querySelector('#v34Workspace');if(!w)return;
   decorateCollapseBass(w);
@@ -322,7 +388,7 @@ const baseSave=V.saveProject.bind(V),baseLoad=V.loadProject.bind(V),baseNew=V.ne
 V.saveProject=function(...a){const item=baseSave(...a);try{const list=JSON.parse(localStorage.getItem(PROJECTS)||'[]'),x=list.find(p=>p.id===item?.id);if(x?.data){x.data.v39={transpose:clone(S.transpose),chords:clone(S.chords),chordsCustomized:S.chordsCustomized,chordKey:S.chordKey,slide:S.slide,glideMs:S.glideMs,pitchRange:S.pitchRange,mod:S.mod,leadVoice:V38.state.voice};localStorage.setItem(PROJECTS,JSON.stringify(list))}}catch{}return item};
 V.loadProject=function(id){let x=null;try{x=JSON.parse(localStorage.getItem(PROJECTS)||'[]').find(p=>p.id===id)?.data?.v39||null}catch{};releaseKeys();window.MB_V39?.stopLead?.();const out=baseLoad(id);if(x){S.transpose={keys:clamp(+x.transpose?.keys||0,-12,12),bass:clamp(+x.transpose?.bass||0,-12,12)};S.chords=Array.isArray(x.chords)&&x.chords.length===7?x.chords:defaults(tracks.keys.key);S.chordsCustomized=!!x.chordsCustomized;S.chordKey=x.chordKey||tracks.keys.key;S.slide=x.slide!==false;S.glideMs=clamp(+x.glideMs||85,0,300);S.pitchRange=[2,7,12].includes(+x.pitchRange)?+x.pitchRange:2;S.mod=clamp(+x.mod||0,0,1);S.leadVoice=x.leadVoice||'Grand Piano'}else{S.transpose={keys:0,bass:0};S.chords=defaults(tracks.keys.key);S.chordsCustomized=false;S.chordKey=tracks.keys.key;S.leadVoice='Grand Piano'}V38.state.voice=hidden.has(S.leadVoice)?'Grand Piano':S.leadVoice;persist();setTimeout(()=>window.MB_V39?.decorate?.(),0);return out};
 V.newProject=function(){releaseKeys();window.MB_V39?.stopLead?.();const out=baseNew();Object.assign(S,{transpose:{keys:0,bass:0},chords:defaults(tracks.keys.key),chordsCustomized:false,chordKey:tracks.keys.key,slide:true,glideMs:85,pitchRange:2,pitchBend:0,mod:0,leadVoice:'Grand Piano'});V38.state.voice='Grand Piano';persist();setTimeout(()=>window.MB_V39?.decorate?.(),0);return out};
-function monitor(){if(!ctx)return;if(S.keyLatch&&!V.extra.latchKeys){stopKey(S.keyLatch);S.keyLatch=null}for(const h of [...S.keyPointers.values(),...(S.keyLatch?[S.keyLatch]:[])]){if(!h.meta&&L.recordingLane==='keys')h.meta=meta(ctx.currentTime);if(h.meta&&!h.captured&&ctx.currentTime>=h.meta.boundary-.002){stopKey(h,h.meta.boundary);for(const [id,z] of S.keyPointers)if(z===h)S.keyPointers.delete(id);if(S.keyLatch===h)S.keyLatch=null}}}
+function monitor(){if(!ctx)return;if(S.keyLatch&&!V.extra.latchKeys){stopKey(S.keyLatch);S.keyLatch=null}if(S.bassLatch&&!V.extra.latchBass){stopBass(S.bassLatch);S.bassLatch=null}for(const h of [...S.keyPointers.values(),...(S.keyLatch?[S.keyLatch]:[])]){if(!h.meta&&L.recordingLane==='keys')h.meta=meta(ctx.currentTime);if(h.meta&&!h.captured&&ctx.currentTime>=h.meta.boundary-.002){stopKey(h,h.meta.boundary);for(const [id,z] of S.keyPointers)if(z===h)S.keyPointers.delete(id);if(S.keyLatch===h)S.keyLatch=null}}for(const h of [...S.bassPointers.values(),...(S.bassLatch?[S.bassLatch]:[])]){if(!h.meta&&L.recordingLane==='bass')h.meta=metaBass(ctx.currentTime);if(h.meta&&!h.captured&&ctx.currentTime>=h.meta.boundary-.002){stopBass(h,h.meta.boundary);for(const [id,z] of S.bassPointers)if(z===h)S.bassPointers.delete(id);if(S.bassLatch===h)S.bassLatch=null}}}
 
 window.auditInstrumentPatches = async function(){
   if(typeof ensureAudio==='function') await ensureAudio();
@@ -415,5 +481,5 @@ window.auditInstrumentPatches = async function(){
   return res;
 };
 
-window.MB_V39={version:'v39',V,api,V38,state:S,SAMPLES,voiceGroups,hidden,chordTypes,clamp,persist,releaseKeys,setTranspose,decorateCore:decorate,monitor,getUICollapse,setUICollapse,auditInstrumentPatches:window.auditInstrumentPatches};persist();
+window.MB_V39={version:'v39',V,api,V38,state:S,SAMPLES,voiceGroups,hidden,chordTypes,clamp,persist,releaseKeys,releaseBass,setTranspose,decorateCore:decorate,monitor,getUICollapse,setUICollapse,auditInstrumentPatches:window.auditInstrumentPatches};persist();
 })();

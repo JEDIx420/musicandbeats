@@ -197,8 +197,61 @@ const synthBassGroup = bassInfo.groups.find(g => g.label === 'Synth Bass');
 assert(synthBassGroup, 'Synth Bass optgroup must exist in bass selector');
 assert.strictEqual(synthBassGroup.options.length, 8, 'Synth Bass must have 8 synth instruments');
 console.log('PASS: Bass selector contains exactly 8 Real Bass + 8 Synth Bass!');
+// Test 2b: Bass Keyboard Number Mapping & Keycaps
+console.log('\n--- Test 2b: Bass Keyboard Number Mapping & Keycaps ---');
+const bassKeycapEval = await send('Runtime.evaluate', {
+  expression: `(() => {
+    document.querySelector('button[data-select="bass"]')?.click();
+    window.MB_V39?.decorateCore?.();
+    const pads = Array.from(document.querySelectorAll('#v34BassPads .v34-bass-pad'));
+    const caps = pads.map(p => p.querySelector('.v39-keycap')?.textContent?.trim());
+    
+    // Simulate pressing Digit1 on keyboard
+    window.dispatchEvent(new KeyboardEvent('keydown', { code: 'Digit1', bubbles: true, cancelable: true }));
+    const pad1Active = pads[0]?.classList.contains('active');
+    
+    // Simulate pressing Digit5 on keyboard
+    window.dispatchEvent(new KeyboardEvent('keydown', { code: 'Digit5', bubbles: true, cancelable: true }));
+    const pad5Active = pads[4]?.classList.contains('active');
 
-// Test 3: Check Keys Voice selector contents & legacy optgroup order
+    // Simulate releasing Digit1 and Digit5
+    window.dispatchEvent(new KeyboardEvent('keyup', { code: 'Digit1', bubbles: true, cancelable: true }));
+    window.dispatchEvent(new KeyboardEvent('keyup', { code: 'Digit5', bubbles: true, cancelable: true }));
+    const pad1Released = !pads[0]?.classList.contains('active');
+    const pad5Released = !pads[4]?.classList.contains('active');
+
+    // Simulate pressing Digit8 on keyboard (8th bass pad)
+    window.dispatchEvent(new KeyboardEvent('keydown', { code: 'Digit8', bubbles: true, cancelable: true }));
+    const pad8Active = pads[7]?.classList.contains('active');
+    window.dispatchEvent(new KeyboardEvent('keyup', { code: 'Digit8', bubbles: true, cancelable: true }));
+    const pad8Released = !pads[7]?.classList.contains('active');
+
+    return {
+      padCount: pads.length,
+      caps,
+      pad1Active,
+      pad5Active,
+      pad1Released,
+      pad5Released,
+      pad8Active,
+      pad8Released
+    };
+  })()`,
+  returnByValue: true
+});
+
+const bassKeycapInfo = bassKeycapEval.result.value;
+assert.strictEqual(bassKeycapInfo.padCount, 8, 'Must have 8 bass pads');
+assert.deepStrictEqual(bassKeycapInfo.caps, ['1', '2', '3', '4', '5', '6', '7', '8'], 'Bass pads must have keycaps 1 through 8');
+assert(bassKeycapInfo.pad1Active, 'Digit1 keydown must activate pad 1');
+assert(bassKeycapInfo.pad5Active, 'Digit5 keydown must activate pad 5');
+assert(bassKeycapInfo.pad1Released, 'Digit1 keyup must release pad 1');
+assert(bassKeycapInfo.pad5Released, 'Digit5 keyup must release pad 5');
+assert(bassKeycapInfo.pad8Active, 'Digit8 keydown must activate pad 8');
+assert(bassKeycapInfo.pad8Released, 'Digit8 keyup must release pad 8');
+console.log('PASS: Bass pads have keycaps 1..8 and respond cleanly to keyboard number digits 1..8!');
+
+
 console.log('\n--- Test 3: Keys Selector & Legacy Synths Demotion ---');
 const keysEval = await send('Runtime.evaluate', {
   expression: `(() => {
