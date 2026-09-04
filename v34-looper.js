@@ -153,12 +153,13 @@
       }
       const abs=state.absoluteStep,step=abs%totalSteps();
       if(state.recordingLane&&abs>=state.recordEndAbs)finishRecording(false,state.nextStepTime);
-      if(state.pendingLane&&abs>=state.pendingStartAbs&&step%16===0&&!state.recordingLane)beginRecording(state.pendingLane,abs,state.nextStepTime);
+      if(state.pendingLane&&abs>=state.pendingStartAbs&&step===0&&!state.recordingLane)beginRecording(state.pendingLane,abs,state.nextStepTime);
       scheduleStep(step,state.nextStepTime);
       scheduleUi(state.nextStepTime,()=>{
         const bar=Math.floor(step/16)+1,beat=Math.floor((step%16)/4)+1;
         updateClock((step+1)/totalSteps(),state.recordingLane?`Recording ${titleLane(state.recordingLane)}`:'Playing',`${bar}.${beat} · ${state.bars} bar loop`,step);
         renderTracksLight();
+        updateRecordButtons(bar);
       });
       state.absoluteStep++;state.nextStepTime+=stepSeconds();
     }
@@ -229,15 +230,102 @@
   function armLane(lane){
     if(!['keys','bass'].includes(lane))return;
     if(state.recordingLane===lane){finishRecording(false);return}
-    if(state.pendingLane===lane){state.pendingLane=null;renderTracks();return}
+    if(state.pendingLane===lane){
+      state.pendingLane=null;state.pendingStartAbs=0;
+      renderTracks();renderWorkspace();updateRecordButtons();
+      if(state.running){
+        const step=state.absoluteStep%totalSteps(),bar=Math.floor(step/16)+1,beat=Math.floor((step%16)/4)+1;
+        updateClock((step+1)/totalSteps(),'Playing',`${bar}.${beat} · ${state.bars} bar loop`,step);
+      } else {
+        updateClock(0,'Ready','Tap Play, or record a Keys/Bass loop.');
+      }
+      return;
+    }
     state.pendingLane=lane;
-    if(!state.running){startTransport(true);state.pendingStartAbs=0}
-    else state.pendingStartAbs=Math.ceil((state.absoluteStep+1)/16)*16;
-    renderTracks();updateClock(0,'Armed',` ${titleLane(lane)} starts on the next bar`);
+    if(!state.running){
+      startTransport(true);state.pendingStartAbs=0;
+    } else {
+      const tot=totalSteps();
+      state.pendingStartAbs=Math.ceil((state.absoluteStep+1)/tot)*tot;
+    }
+    renderTracks();renderWorkspace();updateRecordButtons();
+    updateClock(0,'Armed',`${titleLane(lane)} recording starts at 1.1`);
   }
   function beginRecording(lane,abs,t){
     state.pendingLane=null;state.recordingLane=lane;state.recordStartAbs=abs;state.recordEndAbs=abs+totalSteps();state.recordStartTime=t;state.recordStartStep=abs%totalSteps();
-    TRACKS[lane].events=[];persist();renderAll();
+    TRACKS[lane].events=[];persist();renderAll();updateRecordButtons();
+    for(const h of state.liveHolds.values())if(h.lane===lane){
+      h.captured=false;h.startedAt=t;h.captureMeta={lane,startTime:t,startStep:0,boundary:t+totalSteps()*stepSeconds()};
+    }
+    window.MB_V39?.carryForwardRecord?.(lane,t);
+  }
+  function updateRecordButtons(bar){
+    const currentBar=bar||Math.floor((state.absoluteStep%totalSteps())/16)+1;
+    const kb=document.querySelector('#v34KeysRecord');
+    if(kb){
+      if(state.recordingLane==='keys'){
+        kb.className='v34-accent v34-rec-recording';
+        kb.textContent=`● Recording chord loop (${currentBar}/${state.bars})`;
+      }else if(state.pendingLane==='keys'){
+        kb.className='v34-accent v34-rec-armed';
+        kb.textContent='● Armed · starts at 1.1';
+      }else{
+        kb.className='v34-accent';
+        kb.textContent='● Record chord loop';
+      }
+    }
+    const bb=document.querySelector('#v34BassRecord');
+    if(bb){
+      if(state.recordingLane==='bass'){
+        bb.className='v34-accent v34-rec-recording';
+        bb.textContent=`● Recording bass loop (${currentBar}/${state.bars})`;
+      }else if(state.pendingLane==='bass'){
+        bb.className='v34-accent v34-rec-armed';
+        bb.textContent='● Armed · starts at 1.1';
+      }else{
+        bb.className='v34-accent';
+        bb.textContent='● Record bass loop';
+      }
+    }
+  }
+  function normalizeTrackEvents(events, totSteps, isLatched=false){
+    if(!Array.isArray(events)||!events.length)return [];
+    const clean=events.filter(e=>e&&Number.isFinite(e.step)&&Number.isFinite(e.durationSteps)&&e.midis?.length)
+      .map(e=>({
+        step:((Math.round(e.step)%totSteps)+totSteps)%totSteps,
+        durationSteps:Math.max(1,Math.min(totSteps,Math.round(e.durationSteps))),
+        midis:[...e.midis],
+        preset:e.preset
+      }))
+      .sort((a,b)=>a.step-b.step);
+    if(!clean.length)return [];
+    const deduped=[];
+    for(let i=0;i<clean.length;i++){
+      if(i<clean.length-1&&clean[i].step===clean[i+1].step)continue;
+      deduped.push(clean[i]);
+    }
+    for(let i=0;i<deduped.length;i++){
+      const curr=deduped[i];
+      if(i<deduped.length-1){
+        const next=deduped[i+1];
+        const gap=next.step-(curr.step+curr.durationSteps);
+        if(isLatched){
+          curr.durationSteps=Math.max(1,next.step-curr.step);
+        }else{
+          if(gap>0&&gap<=1){
+            curr.durationSteps=next.step-curr.step;
+          }else if(gap<0){
+            curr.durationSteps=Math.max(1,next.step-curr.step);
+          }
+        }
+      }else{
+        const gapToEnd=totSteps-(curr.step+curr.durationSteps);
+        if(isLatched||gapToEnd<=1||gapToEnd<0){
+          curr.durationSteps=totSteps-curr.step;
+        }
+      }
+    }
+    return deduped;
   }
   function finishRecording(cancelled=false,endTime=null){
     const lane=state.recordingLane;if(!lane)return;
@@ -245,7 +333,10 @@
     const meta={lane,startTime:state.recordStartTime,startStep:state.recordStartStep,boundary};
     if(!cancelled&&ctx&&boundary>ctx.currentTime){state.captureGrace=meta;setTimeout(()=>{if(state.captureGrace===meta)state.captureGrace=null},Math.max(0,(boundary-ctx.currentTime)*1000)+24)}else state.captureGrace=null;
     for(const h of state.liveHolds.values())if(h.lane===lane){h.captureMeta=h.captureMeta||meta;captureHold(h,boundary,true)}
-    state.recordingLane=null;persist();renderAll();
+    window.MB_V39?.onFinishRecording?.(lane,boundary,cancelled);
+    const latchOn=window.MB_V35?.extra?.[lane==='keys'?'latchKeys':'latchBass']||false;
+    TRACKS[lane].events=normalizeTrackEvents(TRACKS[lane].events,totalSteps(),latchOn);
+    state.recordingLane=null;persist();renderAll();updateRecordButtons();
     if(!cancelled)updateClock(1,`${titleLane(lane)} loop ready`,'Locked to the master grid');
   }
   function captureHold(h,endTime,forced=false){
@@ -295,8 +386,9 @@
   function renderWorkspace(){
     const h=document.querySelector('#v34Workspace');if(!h)return;
     if(state.activeLane==='beats'){renderBeatWorkspace(h);return}
-    if(state.activeLane==='keys'){renderKeysWorkspace(h);return}
+    if(state.activeLane==='keys'){renderKeysWorkspace(h);window.MB_V39?.decorateCore?.();return}
     renderBassWorkspace(h);
+    window.MB_V39?.decorateCore?.();
   }
   function renderBeatWorkspace(h){
     h.innerHTML=`<div class="v34-work-head"><div><span class="v34-kicker">BEAT</span><h2>Groove</h2></div><small>Pattern stays locked to every bar.</small></div>
@@ -313,8 +405,9 @@
   }
 
   function renderKeysWorkspace(h){
-    const t=TRACKS.keys;h.innerHTML=`<div class="v34-work-head"><div><span class="v34-kicker">KEYS</span><h2>Chord loop</h2></div><small>Tap ● Loop, then play these pads. Starts are quantized to 1/16.</small></div>
-      <div class="v34-control-grid"><label>Voice<select id="v34KeysSound">${V34_KEY_SOUNDS.filter(x=>SOUND_PRESETS[x]).map(x=>`<option ${x===t.sound?'selected':''}>${esc(x)}</option>`).join('')}</select></label><label>Key<select id="v34KeysKey">${NOTES.map(x=>`<option ${x===t.key?'selected':''}>${x}</option>`).join('')}</select></label><button id="v34KeysRecord" class="v34-accent" type="button">${state.recordingLane==='keys'?'Finish loop':state.pendingLane==='keys'?'Cancel arm':'● Record chord loop'}</button></div>
+    const t=TRACKS.keys,currentBar=Math.floor((state.absoluteStep%totalSteps())/16)+1;
+    h.innerHTML=`<div class="v34-work-head"><div><span class="v34-kicker">KEYS</span><h2>Chord loop</h2></div><small>Tap ● Loop, then play these pads. Starts are quantized to 1/16.</small></div>
+      <div class="v34-control-grid"><label>Voice<select id="v34KeysSound">${V34_KEY_SOUNDS.filter(x=>SOUND_PRESETS[x]).map(x=>`<option ${x===t.sound?'selected':''}>${esc(x)}</option>`).join('')}</select></label><label>Key<select id="v34KeysKey">${NOTES.map(x=>`<option ${x===t.key?'selected':''}>${x}</option>`).join('')}</select></label><button id="v34KeysRecord" class="v34-accent ${state.recordingLane==='keys'?'v34-rec-recording':state.pendingLane==='keys'?'v34-rec-armed':''}" type="button">${state.recordingLane==='keys'?`● Recording chord loop (${currentBar}/${state.bars})`:state.pendingLane==='keys'?'● Armed · starts at 1.1':'● Record chord loop'}</button></div>
       <div id="v34ChordPads" class="v34-pad-grid"></div>`;
     h.querySelector('#v34KeysSound').addEventListener('change',e=>{t.sound=e.target.value;persist()});h.querySelector('#v34KeysKey').addEventListener('change',e=>{t.key=e.target.value;persist();renderKeysWorkspace(h)});h.querySelector('#v34KeysRecord').addEventListener('click',()=>armLane('keys'));renderChordSurface();
   }
@@ -328,8 +421,9 @@
     });
   }
   function renderBassWorkspace(h){
-    const t=TRACKS.bass;h.innerHTML=`<div class="v34-work-head"><div><span class="v34-kicker">BASS</span><h2>Bass loop</h2></div><small>One octave of scale tones, locked to the same master grid.</small></div>
-      <div class="v34-control-grid"><label>Voice<select id="v34BassSound">${V34_BASS_SOUNDS.filter(x=>SOUND_PRESETS[x]||window.MB_V38?.SAMPLE_VOICES?.[x]).map(x=>`<option ${x===t.sound?'selected':''}>${esc(x)}</option>`).join('')}</select></label><label>Key<select id="v34BassKey">${NOTES.map(x=>`<option ${x===t.key?'selected':''}>${x}</option>`).join('')}</select></label><button id="v34BassRecord" class="v34-accent" type="button">${state.recordingLane==='bass'?'Finish loop':state.pendingLane==='bass'?'Cancel arm':'● Record bass loop'}</button></div>
+    const t=TRACKS.bass,currentBar=Math.floor((state.absoluteStep%totalSteps())/16)+1;
+    h.innerHTML=`<div class="v34-work-head"><div><span class="v34-kicker">BASS</span><h2>Bass loop</h2></div><small>One octave of scale tones, locked to the same master grid.</small></div>
+      <div class="v34-control-grid"><label>Voice<select id="v34BassSound">${V34_BASS_SOUNDS.filter(x=>SOUND_PRESETS[x]||window.MB_V38?.SAMPLE_VOICES?.[x]).map(x=>`<option ${x===t.sound?'selected':''}>${esc(x)}</option>`).join('')}</select></label><label>Key<select id="v34BassKey">${NOTES.map(x=>`<option ${x===t.key?'selected':''}>${x}</option>`).join('')}</select></label><button id="v34BassRecord" class="v34-accent ${state.recordingLane==='bass'?'v34-rec-recording':state.pendingLane==='bass'?'v34-rec-armed':''}" type="button">${state.recordingLane==='bass'?`● Recording bass loop (${currentBar}/${state.bars})`:state.pendingLane==='bass'?'● Armed · starts at 1.1':'● Record bass loop'}</button></div>
       <div id="v34BassPads" class="v34-pad-grid v34-bass-grid"></div>`;
     h.querySelector('#v34BassSound').addEventListener('change',e=>{
       t.sound=e.target.value;persist();
@@ -372,7 +466,7 @@
     const save=document.querySelector('#saveBtn');if(save)save.hidden=true;
     const engine=document.querySelector('#engineBadge');if(engine)engine.hidden=true;
     window.addEventListener('pagehide',()=>{persist();if(state.running)stopTransport()});
-    window.MB_V34_LOOPER={state,tracks:TRACKS,start:startTransport,stop:stopTransport,open:openLooper,version:'v34'};
+    window.MB_V34_LOOPER={state,tracks:TRACKS,start:startTransport,stop:stopTransport,open:openLooper,normalizeTrackEvents,version:'v34'};
   }
   init();
 })();
