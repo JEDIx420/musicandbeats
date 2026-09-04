@@ -88,8 +88,8 @@
           <button id="v34Transport" class="v34-main-play" type="button"><span>▶</span><strong>Play</strong></button>
           <div class="v34-tempo"><button id="v34BpmDown" type="button">−</button><label><small>BPM</small><input id="v34Bpm" type="number" min="40" max="220" inputmode="numeric"></label><button id="v34BpmUp" type="button">+</button></div>
           <div class="v34-bars"><small>LOOP</small><div id="v34BarChoices">${[1,2,4,8].map(n=>`<button data-bars="${n}" type="button">${n}</button>`).join('')}</div></div>
+          <div class="v34-clock"><div class="v34-clock-ring" id="v34ClockRing"><span id="v34ClockText">1.1</span></div><div><strong id="v34ClockStatus">Ready</strong><small id="v34ClockHint">Tap Play, or record a Keys/Bass loop.</small></div></div>
         </section>
-        <div class="v34-clock"><div class="v34-clock-ring" id="v34ClockRing"><span id="v34ClockText">1.1</span></div><div><strong id="v34ClockStatus">Ready</strong><small id="v34ClockHint">Tap Play, or record a Keys/Bass loop.</small></div></div>
         <section id="v34Tracks" class="v34-tracks"></section>
         <section id="v34Workspace" class="v34-workspace"></section>
       </div>`;
@@ -163,7 +163,7 @@
       state.absoluteStep++;state.nextStepTime+=stepSeconds();
     }
   }
-  function scheduleUi(t,fn){setTimeout(fn,Math.max(0,(t-ctx.currentTime)*1000))}
+  function scheduleUi(t,fn){setTimeout(()=>{if(!state.running)return;fn()},Math.max(0,(t-ctx.currentTime)*1000))}
   function scheduleStep(step,t){
     if(!TRACKS.beats.muted&&state.beatPattern){const s=step%16;if(state.beatPattern.kick[s])kick(t,state.beatBus||drumBus);if(state.beatPattern.snare[s])snare(t,state.beatBus||drumBus);if(state.beatPattern.hat[s])hat(t,state.beatBus||drumBus)}
     ['keys','bass'].forEach(lane=>{
