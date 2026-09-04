@@ -1,7 +1,7 @@
 /* Music & Beats V39 lead — glide, pitch/mod strips, deep FX path and Western sample voices. */
 (()=>{
 const M=window.MB_V39,V37=window.MB_V37;if(!M||!V37||M.leadReady)return;M.leadReady=true;const {V38,state:S,clamp}=M,L=M.api.state,BASE='https://cdn.jsdelivr.net/gh/surikov/webaudiofontdata@master/sound/';
-Object.assign(S,{leadPointers:new Map(),leadPending:new Map(),scripts:new Map(),buffers:new WeakMap(),fxInput:null,fxOutput:null,fxNodes:[],fxLfos:[],sampleStatus:new Map()});
+Object.assign(S,{leadPointers:new Map(),leadPending:new Map(),scripts:new Map(),buffers:new WeakMap(),decodedBuffers:new WeakMap(),fxInput:null,fxOutput:null,fxNodes:[],fxLfos:[],sampleStatus:new Map()});
 const curve=a=>{const n=2048,x=new Float32Array(n);for(let i=0;i<n;i++){const v=i*2/n-1;x[i]=(1+a)*v/(1+a*Math.abs(v))}return x};
 function impulse(sec,dec){const r=ctx.sampleRate,n=Math.max(1,r*sec|0),b=ctx.createBuffer(2,n,r);for(let c=0;c<2;c++){const d=b.getChannelData(c);for(let i=0;i<n;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/n,dec)}return b}
 function cleanFX(){for(const l of S.fxLfos){try{l.stop()}catch{}}S.fxLfos=[];for(const n of S.fxNodes){try{n.disconnect()}catch{}}S.fxNodes=[];S.fxInput=S.fxOutput=null}
@@ -9,7 +9,7 @@ function buildFX(){if(!ctx)return null;stopLead();cleanFX();const f=V38.state.fx
 if(f.mod==='Chorus'||f.mod==='Vibrato'){const dry=ctx.createGain(),del=ctx.createDelay(.06),wg=ctx.createGain(),sum=ctx.createGain(),lfo=ctx.createOscillator(),lg=ctx.createGain();dry.gain.value=f.mod==='Vibrato'?.18:.72;wg.gain.value=f.mod==='Vibrato'?.92:.48;del.delayTime.value=f.mod==='Vibrato'?.004:.014;lfo.frequency.value=f.mod==='Vibrato'?4.8:1.1;lg.gain.value=(f.mod==='Vibrato'?.0025:.006)*I;lfo.connect(lg).connect(del.delayTime);cur.connect(dry).connect(sum);cur.connect(del).connect(wg).connect(sum);lfo.start();S.fxLfos.push(lfo);S.fxNodes.push(dry,del,wg,sum,lg);cur=sum}else if(f.mod==='Tremolo'){const g=ctx.createGain(),l=ctx.createOscillator(),lg=ctx.createGain();g.gain.value=1-I*.35;l.frequency.value=3.2+I*4;lg.gain.value=I*.34;l.connect(lg).connect(g.gain);cur.connect(g);l.start();S.fxLfos.push(l);S.fxNodes.push(g,lg);cur=g}else if(f.mod==='Phaser'){const sum=ctx.createGain();let chain=cur;for(let i=0;i<4;i++){const a=ctx.createBiquadFilter();a.type='allpass';a.frequency.value=550+i*420;a.Q.value=1.1+I*4;chain.connect(a);chain=a;S.fxNodes.push(a)}const dry=ctx.createGain(),wg=ctx.createGain();dry.gain.value=.64;wg.gain.value=.58;cur.connect(dry).connect(sum);chain.connect(wg).connect(sum);S.fxNodes.push(sum,dry,wg);cur=sum}else if(f.mod==='Auto Wah'){const wah=ctx.createBiquadFilter(),l=ctx.createOscillator(),lg=ctx.createGain();wah.type='bandpass';wah.frequency.value=700+I*600;wah.Q.value=2.5+I*5;l.frequency.value=1.2+I*2.6;lg.gain.value=500+I*1600;l.connect(lg).connect(wah.frequency);cur.connect(wah);l.start();S.fxLfos.push(l);S.fxNodes.push(wah,lg);cur=wah}
 const dd=ctx.createGain(),dw=ctx.createGain(),delay=ctx.createDelay(1.2),fb=ctx.createGain(),ds=ctx.createGain();dd.gain.value=1;dw.gain.value=f.delay==='Off'?0:Math.min(.72,W*.85+.08);delay.delayTime.value=f.delay==='Slap'?.09:f.delay==='Tape'?.29:f.delay==='Stereo'?.38:f.delay==='Ping Pong'?.46:.01;fb.gain.value=f.delay==='Off'?0:Math.min(.68,.18+I*.45);cur.connect(dd).connect(ds);cur.connect(delay);delay.connect(fb).connect(delay);let dout=delay;if((f.delay==='Stereo'||f.delay==='Ping Pong')&&ctx.createStereoPanner){const p=ctx.createStereoPanner();p.pan.value=f.delay==='Ping Pong'?.72:.38;delay.connect(p);dout=p;S.fxNodes.push(p)}dout.connect(dw).connect(ds);S.fxNodes.push(dd,dw,delay,fb,ds);cur=ds;
 const rd=ctx.createGain(),rw=ctx.createGain(),conv=ctx.createConvolver(),rs=ctx.createGain(),sec=f.space==='Room'?.7:f.space==='Plate'?1.3:f.space==='Hall'?2.4:f.space==='Cathedral'?4.2:.2,dec=f.space==='Cathedral'?3.2:f.space==='Hall'?2.8:2.2;conv.buffer=impulse(sec,dec);rd.gain.value=1;rw.gain.value=f.space==='Off'?0:Math.min(.78,W);cur.connect(rd).connect(rs);cur.connect(conv).connect(rw).connect(rs);S.fxNodes.push(rd,rw,conv,rs);cur=rs;
-const hp=ctx.createBiquadFilter(),presence=ctx.createBiquadFilter(),comp=ctx.createDynamicsCompressor(),out=ctx.createGain();hp.type='highpass';hp.frequency.value=75;presence.type='peaking';presence.frequency.value=2700;presence.Q.value=.75;presence.gain.value=2.8;comp.threshold.value=-18;comp.knee.value=10;comp.ratio.value=3;comp.attack.value=.004;comp.release.value=.12;out.gain.value=V37.mix?.lead??1.1;cur.connect(hp).connect(presence).connect(comp).connect(out).connect(synthBus);S.fxNodes.push(hp,presence,comp,out);S.fxInput=input;S.fxOutput=out;return input}
+const hp=ctx.createBiquadFilter(),presence=ctx.createBiquadFilter(),comp=ctx.createDynamicsCompressor(),out=ctx.createGain();hp.type='highpass';hp.frequency.value=75;presence.type='peaking';presence.frequency.value=2700;presence.Q.value=.75;presence.gain.value=2.8;comp.threshold.value=-18;comp.knee.value=10;comp.ratio.value=3;comp.attack.value=.004;comp.release.value=.12;out.gain.value=V37.mix?.lead??1.1;const targetBus=(synthBus&&synthBus.context===ctx)?synthBus:ctx.destination;cur.connect(hp).connect(presence).connect(comp).connect(out).connect(targetBus);S.fxNodes.push(hp,presence,comp,out);S.fxInput=input;S.fxOutput=out;return input}
 const dest=()=>!S.fxInput||S.fxInput.context!==ctx?buildFX():S.fxInput;
 
 function loadSample(name){
@@ -17,20 +17,29 @@ function loadSample(name){
   if(window[spec.variable])return Promise.resolve(window[spec.variable]);
   if(S.scripts.has(name))return S.scripts.get(name);
   const p=new Promise(resolve=>{
+    const timer=setTimeout(()=>{S.scripts.delete(name);resolve(window[spec.variable]||null)},12000);
     const s=document.createElement('script');s.src=BASE+spec.file;s.crossOrigin='anonymous';
-    s.onload=()=>resolve(window[spec.variable]||null);
-    s.onerror=()=>{S.scripts.delete(name);resolve(null)};
+    s.onload=()=>{clearTimeout(timer);resolve(window[spec.variable]||null)};
+    s.onerror=()=>{clearTimeout(timer);S.scripts.delete(name);resolve(null)};
     document.head.appendChild(s);
   });
   S.scripts.set(name,p);return p;
 }
 const zoneFor=(p,m)=>p?.zones?.find(z=>m>=z.keyRangeLow&&m<=z.keyRangeHigh)||p?.zones?.reduce((a,z)=>Math.abs(m-(z.keyRangeLow+z.keyRangeHigh)/2)<Math.abs(m-(a.keyRangeLow+a.keyRangeHigh)/2)?z:a,p?.zones?.[0]);
 async function zoneBuffer(z){
-  if(!z?.file||!ctx)return null;
+  if(!z?.file)return null;
+  if(S.decodedBuffers.has(z))return S.decodedBuffers.get(z);
   if(S.buffers.has(z))return S.buffers.get(z);
-  const bytes=Uint8Array.from(atob(z.file),c=>c.charCodeAt(0)).buffer;
-  const p=ctx.decodeAudioData(bytes.slice(0)).catch(()=>null);
-  S.buffers.set(z,p);return p;
+  if(!ctx&&typeof buildAudio==='function')buildAudio();
+  if(!ctx)return null;
+  try{
+    const bytes=Uint8Array.from(atob(z.file),c=>c.charCodeAt(0)).buffer;
+    const p=ctx.decodeAudioData(bytes.slice(0)).then(ab=>{
+      if(ab)S.decodedBuffers.set(z,ab);
+      return ab;
+    }).catch(()=>null);
+    S.buffers.set(z,p);return p;
+  }catch(e){return null}
 }
 
 function updateStatusUI(name,statusText){
@@ -51,6 +60,7 @@ async function preloadVoice(name,minMidi=36,maxMidi=84){
     updateStatusUI(name,`Could not load ${name} — using synth fallback`);
     return false;
   }
+  if(!ctx&&typeof buildAudio==='function')buildAudio();
   if(ctx){
     const needed=new Set();
     for(let m=minMidi;m<=maxMidi;m+=3){
@@ -72,11 +82,12 @@ function isVoiceReady(name,midi=60){
   if(!prog)return false;
   const z=zoneFor(prog,midi);
   if(!z)return false;
-  return S.buffers.has(z);
+  return S.decodedBuffers.has(z);
 }
 
-const sampleManager={loadSample,zoneFor,zoneBuffer,preloadVoice,isVoiceReady,status:S.sampleStatus};
+const sampleManager={loadSample,zoneFor,zoneBuffer,preloadVoice,isVoiceReady,status:S.sampleStatus,decodedBuffers:S.decodedBuffers,buffers:S.buffers};
 M.sampleManager=sampleManager;
+M.synthVoice=synthVoice;
 
 const pitch=(v,vib=0)=>(v.currentMidi??v.midi)+S.pitchBend+vib;
 async function sampleVoice(midi,name,outNode=null){
@@ -102,25 +113,38 @@ async function sampleVoice(midi,name,outNode=null){
   v.apply(0);src.start(now,Math.max(0,+z.delay||0));return v;
 }
 function synthVoice(midi,name,outNode=null){
-  const targetOut=outNode||dest();
+  const ac=outNode?.context||ctx;
+  const targetOut=(outNode&&outNode.context===ac)?outNode:dest();
   const p=SOUND_PRESETS[name]||SOUND_PRESETS['Glass Lead']||SOUND_PRESETS['Studio Grand'];
-  if(!targetOut||!ctx)return null;
-  const f=ctx.createBiquadFilter(),g=ctx.createGain(),now=ctx.currentTime;
-  f.type='lowpass';f.frequency.value=p.filter||7600;f.Q.value=p.q||.7;
+  if(!targetOut||!ac)return null;
+  const f=ac.createBiquadFilter(),g=ac.createGain(),now=ac.currentTime;
+  f.type='lowpass';
+  const baseCut=p.filter||7600;
+  f.frequency.setValueAtTime(baseCut,now);
+  f.Q.value=p.q||.7;
+  const envMul=p.v17?.filterEnv||(p.filterEnv??1);
+  if(envMul!==1){
+    f.frequency.setValueAtTime(Math.min(16000,baseCut*envMul),now);
+    f.frequency.exponentialRampToValueAtTime(Math.max(80,baseCut),now+Math.max(.04,(p.decay||.2)*.75));
+  }
   const peak=(p.gain||.6)*.93;
   g.gain.setValueAtTime(.0001,now);
   g.gain.exponentialRampToValueAtTime(Math.max(.001,peak),now+Math.max(.002,p.attack||.01));
   g.gain.exponentialRampToValueAtTime(Math.max(.001,peak*(p.sustain??.72)),now+Math.max(.05,(p.attack||.01)+(p.decay||.12)));
   f.connect(g).connect(targetOut);
-  const os=(p.oscs||[['sine',0,1]]).map(([type,semi,lev])=>{
-    const o=ctx.createOscillator(),og=ctx.createGain();o.type=type;og.gain.value=lev;
-    o.connect(og).connect(f);o.start();return{o,semi};
+  const os=(p.oscs||[['sine',0,1,0]]).map(oscDef=>{
+    const [type,semi,lev,cents=0]=oscDef;
+    const o=ac.createOscillator(),og=ac.createGain();o.type=type;
+    o.frequency.value=midiToFreq(midi+semi);
+    if(cents)try{o.detune.setValueAtTime(cents,now)}catch{}
+    og.gain.value=lev;
+    o.connect(og).connect(f);o.start();return{o,semi,cents};
   });
   const v={midi,currentMidi:midi,stopped:false,apply(gl=.02,vib=0){
-    if(v.stopped)return;const t=ctx.currentTime,q=pitch(v,vib);
+    if(v.stopped)return;const t=ac.currentTime,q=pitch(v,vib);
     for(const x of os){try{x.o.frequency.cancelScheduledValues(t);x.o.frequency.setTargetAtTime(midiToFreq(q+x.semi),t,Math.max(.002,gl/3))}catch{}}
   },setMidi(n,gl){v.currentMidi=n;v.apply(gl)},stop(){
-    if(v.stopped)return;v.stopped=true;const t=ctx.currentTime,r=Math.max(.05,Math.min(.45,p.release||.18));
+    if(v.stopped)return;v.stopped=true;const t=ac.currentTime,r=Math.max(.05,Math.min(.45,p.release||.18));
     try{g.gain.cancelScheduledValues(t);g.gain.setTargetAtTime(.0001,t,r/3);os.forEach(x=>x.o.stop(t+r+.04))}catch{}
   }};
   v.apply(0);return v;
@@ -129,7 +153,7 @@ async function makeVoice(m,outNode=null){
   const name=V38.state.voice;
   if(V38.SAMPLE_VOICES[name]){
     const spec=V38.SAMPLE_VOICES[name];
-    const ready=window[spec.variable]&&zoneFor(window[spec.variable],m)&&S.buffers.has(zoneFor(window[spec.variable],m));
+    const ready=window[spec.variable]&&zoneFor(window[spec.variable],m)&&S.decodedBuffers.has(zoneFor(window[spec.variable],m));
     if(ready){
       const voice=await sampleVoice(m,name,outNode);
       if(voice)return voice;

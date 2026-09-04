@@ -8,7 +8,7 @@
 
   const STORE='musicandbeats:v34:looper';
   const V34_KEY_SOUNDS=['Studio Grand','Soft Grand','Velvet EP','Tonewheel Organ','Dream Pad','Harmonium','Tanpura Drone','Bansuri Air','Sitar Pluck'];
-  const V34_BASS_SOUNDS=['Sub Bass','Warm Analog'];
+  const V34_BASS_SOUNDS=['Acoustic Bass','Finger Bass','Pick Bass','Fretless Bass','Slap Bass 1','Slap Bass 2','Synth Bass 1','Synth Bass 2','Sub Bass','Deep Club Sub','Reese Bass','Acid Bass','FM House Bass','Pluck Bass','Future Growl','Warm Analog'];
   const TRACKS={
     beats:{muted:false},
     keys:{muted:false,events:[],sound:'Harmonium',key:'C'},
@@ -176,12 +176,54 @@
     (e.midis||[]).forEach((m,i)=>v34ScheduleVoice(+m,e.preset||'Studio Grand',Math.max(.38,.76-i*.025),t,dur));
   }
   function v34ScheduleVoice(m,p,v,start,dur){
-    const s=SOUND_PRESETS[p]||SOUND_PRESETS['Studio Grand'],g=ctx.createGain(),f=ctx.createBiquadFilter();f.type='lowpass';f.frequency.value=s.filter;f.Q.value=s.q||.3;
+    if(window.MB_V39?.sampleManager && window.MB_V38?.SAMPLE_VOICES?.[p]){
+      const sm=window.MB_V39.sampleManager;
+      const spec=window.MB_V38.SAMPLE_VOICES[p];
+      const prog=window[spec?.variable];
+      const z=sm.zoneFor(prog,m);
+      const b=sm.decodedBuffers?.get?.(z);
+      if(b && ctx){
+        const src=ctx.createBufferSource(),g=ctx.createGain();
+        const base=(+z.originalPitch||6000)/100+(+z.coarseTune||0)+(+z.fineTune||0)/100;
+        src.buffer=b;
+        if(+z.loopStart>=0&&+z.loopEnd>+z.loopStart){
+          src.loop=true;src.loopStart=z.loopStart/(z.sampleRate||b.sampleRate);src.loopEnd=z.loopEnd/(z.sampleRate||b.sampleRate);
+        }
+        g.gain.setValueAtTime(.0001,start);
+        g.gain.exponentialRampToValueAtTime(Math.max(.001,v*.88),start+.008);
+        g.gain.setValueAtTime(Math.max(.001,v*.88),Math.max(start+.008,start+dur-.05));
+        g.gain.exponentialRampToValueAtTime(.0001,start+dur);
+        const targetBus=(state.playbackBus?.context===ctx?state.playbackBus:(synthBus?.context===ctx?synthBus:ctx.destination));
+        src.connect(g).connect(targetBus);
+        const r=Math.pow(2,(m-base)/12);
+        try{src.playbackRate.setValueAtTime(r,start)}catch{}
+        src.start(start,Math.max(0,+z.delay||0));
+        src.stop(start+dur+.1);
+        return;
+      }
+    }
+    const targetBus=(state.playbackBus?.context===ctx?state.playbackBus:(synthBus?.context===ctx?synthBus:ctx.destination));
+    const s=SOUND_PRESETS[p]||SOUND_PRESETS['Studio Grand'],g=ctx.createGain(),f=ctx.createBiquadFilter();f.type='lowpass';
+    const baseCut=s.filter||2000;
+    f.frequency.setValueAtTime(baseCut,start);
+    f.Q.value=s.q||.3;
+    const envMul=s.v17?.filterEnv||(s.filterEnv??1);
+    if(envMul!==1){
+      f.frequency.setValueAtTime(Math.min(16000,baseCut*envMul),start);
+      f.frequency.exponentialRampToValueAtTime(Math.max(80,baseCut),start+Math.max(.04,(s.decay||.2)*.75));
+    }
     const attack=Math.min(Math.max(.003,s.attack||.004),dur*.22),decay=Math.min(Math.max(.015,s.decay||.2),dur*.28),rel=Math.min(Math.max(.04,s.release||.3),dur*.45);
     const attackEnd=start+attack,decayEnd=Math.min(start+dur*.58,attackEnd+decay),releaseAt=Math.max(decayEnd,start+dur-rel);
     g.gain.setValueAtTime(.0001,start);g.gain.exponentialRampToValueAtTime(Math.max(.001,s.gain*v),attackEnd);g.gain.exponentialRampToValueAtTime(Math.max(.001,s.gain*s.sustain*v),decayEnd);
     g.gain.setValueAtTime(Math.max(.001,s.gain*s.sustain*v),releaseAt);g.gain.exponentialRampToValueAtTime(.0001,start+dur);
-    f.connect(g).connect(state.playbackBus||synthBus);s.oscs.forEach(([type,semi,lev])=>{const o=ctx.createOscillator(),og=ctx.createGain();o.type=type;o.frequency.setValueAtTime(midiToFreq(m+semi),start);og.gain.value=lev;o.connect(og).connect(f);o.start(start);o.stop(start+dur+.03)});
+    f.connect(g).connect(targetBus);
+    s.oscs.forEach(def=>{
+      const [type,semi,lev,cents=0]=def;
+      const o=ctx.createOscillator(),og=ctx.createGain();o.type=type;
+      o.frequency.setValueAtTime(midiToFreq(m+semi),start);
+      if(cents)try{o.detune.setValueAtTime(cents,start)}catch{}
+      og.gain.value=lev;o.connect(og).connect(f);o.start(start);o.stop(start+dur+.03);
+    });
   }
 
   function armLane(lane){
@@ -287,9 +329,14 @@
   }
   function renderBassWorkspace(h){
     const t=TRACKS.bass;h.innerHTML=`<div class="v34-work-head"><div><span class="v34-kicker">BASS</span><h2>Bass loop</h2></div><small>One octave of scale tones, locked to the same master grid.</small></div>
-      <div class="v34-control-grid"><label>Voice<select id="v34BassSound">${V34_BASS_SOUNDS.filter(x=>SOUND_PRESETS[x]).map(x=>`<option ${x===t.sound?'selected':''}>${esc(x)}</option>`).join('')}</select></label><label>Key<select id="v34BassKey">${NOTES.map(x=>`<option ${x===t.key?'selected':''}>${x}</option>`).join('')}</select></label><button id="v34BassRecord" class="v34-accent" type="button">${state.recordingLane==='bass'?'Finish loop':state.pendingLane==='bass'?'Cancel arm':'● Record bass loop'}</button></div>
+      <div class="v34-control-grid"><label>Voice<select id="v34BassSound">${V34_BASS_SOUNDS.filter(x=>SOUND_PRESETS[x]||window.MB_V38?.SAMPLE_VOICES?.[x]).map(x=>`<option ${x===t.sound?'selected':''}>${esc(x)}</option>`).join('')}</select></label><label>Key<select id="v34BassKey">${NOTES.map(x=>`<option ${x===t.key?'selected':''}>${x}</option>`).join('')}</select></label><button id="v34BassRecord" class="v34-accent" type="button">${state.recordingLane==='bass'?'Finish loop':state.pendingLane==='bass'?'Cancel arm':'● Record bass loop'}</button></div>
       <div id="v34BassPads" class="v34-pad-grid v34-bass-grid"></div>`;
-    h.querySelector('#v34BassSound').addEventListener('change',e=>{t.sound=e.target.value;persist()});h.querySelector('#v34BassKey').addEventListener('change',e=>{t.key=e.target.value;persist();renderBassWorkspace(h)});h.querySelector('#v34BassRecord').addEventListener('click',()=>armLane('bass'));renderBassSurface();
+    h.querySelector('#v34BassSound').addEventListener('change',e=>{
+      t.sound=e.target.value;persist();
+      if(window.MB_V39?.sampleManager&&window.MB_V38?.SAMPLE_VOICES?.[e.target.value]){
+        window.MB_V39.sampleManager.preloadVoice(e.target.value,24,60);
+      }
+    });h.querySelector('#v34BassKey').addEventListener('change',e=>{t.key=e.target.value;persist();renderBassWorkspace(h)});h.querySelector('#v34BassRecord').addEventListener('click',()=>armLane('bass'));renderBassSurface();
   }
   function renderBassSurface(){
     const el=document.querySelector('#v34BassPads');if(!el)return;const root=NOTES.indexOf(TRACKS.bass.key),scale=[0,2,4,5,7,9,11,12];
