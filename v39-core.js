@@ -22,11 +22,13 @@ function intervals(c){return c.type==='Custom'?(custom(c.custom).length?custom(c
 function midis(c){const root=Math.max(0,NOTES.indexOf(c.root)),base=noteMidi('C',3)+root+S.transpose.keys;return intervals(c).map(x=>base+x)}
 function label(c){return `${window.FLAT?.[c.root]||c.root}${suffix[c.type]??c.type}`}
 function meta(now){if(L.recordingLane==='keys')return{startTime:L.recordStartTime,startStep:L.recordStartStep,boundary:L.recordStartTime+V.totalSteps()*V.stepSeconds()};const g=L.captureGrace;if(g?.lane==='keys'&&now<=g.boundary)return{startTime:g.startTime,startStep:g.startStep,boundary:g.boundary};return null}
-function capture(h,end){if(h.captured||!h.meta)return;const sec=V.stepSeconds(),m=h.meta,e=Math.min(end,m.boundary),s=Math.max(h.startedAt,m.startTime);if(e<=m.startTime){h.captured=true;return}let a=Math.round((s-m.startTime)/sec),b=Math.round((e-m.startTime)/sec);a=clamp(a,0,V.totalSteps()-1);b=clamp(Math.max(a+1,b),a+1,V.totalSteps());tracks.keys.events.push({step:V.wrapStep(m.startStep+a),durationSteps:b-a,midis:[...h.midis],preset:h.preset});h.captured=true;V.persist()}
+function capture(h,end){if(h.captured||!h.meta)return;const sec=V.stepSeconds(),m=h.meta,e=Math.min(end,m.boundary),s=Math.max(h.startedAt,m.startTime);if(e<=m.startTime){h.captured=true;return}let a=Math.round((s-m.startTime)/sec),b=Math.round((e-m.startTime)/sec);a=clamp(a,0,V.totalSteps()-1);b=clamp(Math.max(a+1,b),a+1,V.totalSteps());tracks.keys.events.push({step:V.wrapStep(m.startStep+a),durationSteps:b-a,midis:[...h.midis],preset:h.preset});h.captured=true;if(L.normalizeTrackEvents)tracks.keys.events=L.normalizeTrackEvents(tracks.keys.events,V.totalSteps(),!!V.extra.latchKeys);V.persist()}
 function stopKey(h,end=ctx?.currentTime||0){if(!h)return;capture(h,end);h.voices?.forEach(v=>{try{v.stop()}catch{}});h.button?.classList.remove('active','v36-latched');if(S.keyLatch===h)S.keyLatch=null}
 function metaBass(now){if(L.recordingLane==='bass')return{startTime:L.recordStartTime,startStep:L.recordStartStep,boundary:L.recordStartTime+V.totalSteps()*V.stepSeconds()};const g=L.captureGrace;if(g?.lane==='bass'&&now<=g.boundary)return{startTime:g.startTime,startStep:g.startStep,boundary:g.boundary};return null}
-function captureBass(h,end){if(h.captured||!h.meta)return;const sec=V.stepSeconds(),m=h.meta,e=Math.min(end,m.boundary),s=Math.max(h.startedAt,m.startTime);if(e<=m.startTime){h.captured=true;return}let a=Math.round((s-m.startTime)/sec),b=Math.round((e-m.startTime)/sec);a=clamp(a,0,V.totalSteps()-1);b=clamp(Math.max(a+1,b),a+1,V.totalSteps());tracks.bass.events.push({step:V.wrapStep(m.startStep+a),durationSteps:b-a,midis:[...h.midis],preset:h.preset});h.captured=true;V.persist()}
+function captureBass(h,end){if(h.captured||!h.meta)return;const sec=V.stepSeconds(),m=h.meta,e=Math.min(end,m.boundary),s=Math.max(h.startedAt,m.startTime);if(e<=m.startTime){h.captured=true;return}let a=Math.round((s-m.startTime)/sec),b=Math.round((e-m.startTime)/sec);a=clamp(a,0,V.totalSteps()-1);b=clamp(Math.max(a+1,b),a+1,V.totalSteps());tracks.bass.events.push({step:V.wrapStep(m.startStep+a),durationSteps:b-a,midis:[...h.midis],preset:h.preset});h.captured=true;if(L.normalizeTrackEvents)tracks.bass.events=L.normalizeTrackEvents(tracks.bass.events,V.totalSteps(),!!V.extra.latchBass);V.persist()}
 function stopBass(h,end=ctx?.currentTime||0){if(!h)return;captureBass(h,end);h.voices?.forEach(v=>{try{v.stop()}catch{}});h.button?.classList.remove('active','v36-latched');if(S.bassLatch===h)S.bassLatch=null}
+function carryForwardRecord(lane,t){const sec=V.stepSeconds(),tot=V.totalSteps(),boundary=t+tot*sec;if(lane==='keys'){const holds=[...S.keyPointers.values(),...(S.keyLatch?[S.keyLatch]:[]),...S.heldShortcuts.values()];for(const h of holds){h.captured=false;h.startedAt=t;h.meta={lane:'keys',startTime:t,startStep:0,boundary}}}else if(lane==='bass'){const holds=[...S.bassPointers.values(),...(S.bassLatch?[S.bassLatch]:[]),...S.heldBassShortcuts.values()];for(const h of holds){h.captured=false;h.startedAt=t;h.meta={lane:'bass',startTime:t,startStep:0,boundary}}}}
+function onFinishRecording(lane,boundary,cancelled){if(cancelled)return;if(lane==='keys'&&S.keyLatch&&!S.keyLatch.captured&&S.keyLatch.meta)capture(S.keyLatch,boundary);if(lane==='bass'&&S.bassLatch&&!S.bassLatch.captured&&S.bassLatch.meta)captureBass(S.bassLatch,boundary);const latchOn=V.extra?.[lane==='keys'?'latchKeys':'latchBass']||false;if(tracks[lane]&&L.normalizeTrackEvents)tracks[lane].events=L.normalizeTrackEvents(tracks[lane].events,V.totalSteps(),latchOn);V.persist()}
 function releaseBass(){for(const h of S.bassPointers.values())stopBass(h);S.bassPointers.clear();stopBass(S.bassLatch);S.bassLatch=null;for(const h of S.heldBassShortcuts.values())stopBass(h);S.heldBassShortcuts.clear()}
 function releaseKeys(){for(const h of S.keyPointers.values())stopKey(h);S.keyPointers.clear();stopKey(S.keyLatch);S.keyLatch=null;for(const h of S.heldShortcuts.values())stopKey(h);S.heldShortcuts.clear();releaseBass()}
 
@@ -99,7 +101,14 @@ if(typeof prevStartVoice==='function'&&!prevStartVoice.__v39SampleHook){
 
 function startChordOnPad(b){
   if(!b||!ctx)return;
-  const ms=b.dataset.v39Midis?.split(',').map(Number).filter(Number.isFinite);
+  let ms=b.dataset.v39Midis?.split(',').map(Number).filter(Number.isFinite);
+  if(!ms||!ms.length){
+    const idx=+b.dataset.index;
+    if(Number.isFinite(idx)){
+      const c=S.chords[idx]||defaults(tracks.keys.key)[idx];
+      if(c)ms=midis(c);
+    }
+  }
   if(!ms||!ms.length)return;
   const preset=tracks.keys.sound,now=ctx.currentTime;
   if(V.extra.latchKeys){
@@ -132,7 +141,7 @@ function startBassOnPad(b){
 }
 
 function down(e){
-  const kb=e.target.closest?.('#v34ChordPads .v34-performance-pad[data-v39-midis]');
+  const kb=e.target.closest?.('#v34ChordPads .v34-performance-pad');
   if(kb){
     e.preventDefault();e.stopImmediatePropagation();primeAudio();if(!ctx)return;
     const h=startChordOnPad(kb);
@@ -388,7 +397,7 @@ const baseSave=V.saveProject.bind(V),baseLoad=V.loadProject.bind(V),baseNew=V.ne
 V.saveProject=function(...a){const item=baseSave(...a);try{const list=JSON.parse(localStorage.getItem(PROJECTS)||'[]'),x=list.find(p=>p.id===item?.id);if(x?.data){x.data.v39={transpose:clone(S.transpose),chords:clone(S.chords),chordsCustomized:S.chordsCustomized,chordKey:S.chordKey,slide:S.slide,glideMs:S.glideMs,pitchRange:S.pitchRange,mod:S.mod,leadVoice:V38.state.voice};localStorage.setItem(PROJECTS,JSON.stringify(list))}}catch{}return item};
 V.loadProject=function(id){let x=null;try{x=JSON.parse(localStorage.getItem(PROJECTS)||'[]').find(p=>p.id===id)?.data?.v39||null}catch{};releaseKeys();window.MB_V39?.stopLead?.();const out=baseLoad(id);if(x){S.transpose={keys:clamp(+x.transpose?.keys||0,-12,12),bass:clamp(+x.transpose?.bass||0,-12,12)};S.chords=Array.isArray(x.chords)&&x.chords.length===7?x.chords:defaults(tracks.keys.key);S.chordsCustomized=!!x.chordsCustomized;S.chordKey=x.chordKey||tracks.keys.key;S.slide=x.slide!==false;S.glideMs=clamp(+x.glideMs||85,0,300);S.pitchRange=[2,7,12].includes(+x.pitchRange)?+x.pitchRange:2;S.mod=clamp(+x.mod||0,0,1);S.leadVoice=x.leadVoice||'Grand Piano'}else{S.transpose={keys:0,bass:0};S.chords=defaults(tracks.keys.key);S.chordsCustomized=false;S.chordKey=tracks.keys.key;S.leadVoice='Grand Piano'}V38.state.voice=hidden.has(S.leadVoice)?'Grand Piano':S.leadVoice;persist();setTimeout(()=>window.MB_V39?.decorate?.(),0);return out};
 V.newProject=function(){releaseKeys();window.MB_V39?.stopLead?.();const out=baseNew();Object.assign(S,{transpose:{keys:0,bass:0},chords:defaults(tracks.keys.key),chordsCustomized:false,chordKey:tracks.keys.key,slide:true,glideMs:85,pitchRange:2,pitchBend:0,mod:0,leadVoice:'Grand Piano'});V38.state.voice='Grand Piano';persist();setTimeout(()=>window.MB_V39?.decorate?.(),0);return out};
-function monitor(){if(!ctx)return;if(S.keyLatch&&!V.extra.latchKeys){stopKey(S.keyLatch);S.keyLatch=null}if(S.bassLatch&&!V.extra.latchBass){stopBass(S.bassLatch);S.bassLatch=null}for(const h of [...S.keyPointers.values(),...(S.keyLatch?[S.keyLatch]:[])]){if(!h.meta&&L.recordingLane==='keys')h.meta=meta(ctx.currentTime);if(h.meta&&!h.captured&&ctx.currentTime>=h.meta.boundary-.002){stopKey(h,h.meta.boundary);for(const [id,z] of S.keyPointers)if(z===h)S.keyPointers.delete(id);if(S.keyLatch===h)S.keyLatch=null}}for(const h of [...S.bassPointers.values(),...(S.bassLatch?[S.bassLatch]:[])]){if(!h.meta&&L.recordingLane==='bass')h.meta=metaBass(ctx.currentTime);if(h.meta&&!h.captured&&ctx.currentTime>=h.meta.boundary-.002){stopBass(h,h.meta.boundary);for(const [id,z] of S.bassPointers)if(z===h)S.bassPointers.delete(id);if(S.bassLatch===h)S.bassLatch=null}}}
+function monitor(){if(!ctx)return;if(S.keyLatch&&!V.extra.latchKeys){stopKey(S.keyLatch);S.keyLatch=null}if(S.bassLatch&&!V.extra.latchBass){stopBass(S.bassLatch);S.bassLatch=null}for(const h of [...S.keyPointers.values(),...(S.keyLatch?[S.keyLatch]:[])]){if(!h.meta&&L.recordingLane==='keys')h.meta=meta(ctx.currentTime);if(h.meta&&!h.captured&&ctx.currentTime>=h.meta.boundary-.002){if(S.keyLatch===h){capture(h,h.meta.boundary)}else{stopKey(h,h.meta.boundary);for(const [id,z] of S.keyPointers)if(z===h)S.keyPointers.delete(id)}}}for(const h of [...S.bassPointers.values(),...(S.bassLatch?[S.bassLatch]:[])]){if(!h.meta&&L.recordingLane==='bass')h.meta=metaBass(ctx.currentTime);if(h.meta&&!h.captured&&ctx.currentTime>=h.meta.boundary-.002){if(S.bassLatch===h){captureBass(h,h.meta.boundary)}else{stopBass(h,h.meta.boundary);for(const [id,z] of S.bassPointers)if(z===h)S.bassPointers.delete(id)}}}}
 
 window.auditInstrumentPatches = async function(){
   if(typeof ensureAudio==='function') await ensureAudio();
@@ -481,5 +490,5 @@ window.auditInstrumentPatches = async function(){
   return res;
 };
 
-window.MB_V39={version:'v39',V,api,V38,state:S,SAMPLES,voiceGroups,hidden,chordTypes,clamp,persist,releaseKeys,releaseBass,setTranspose,decorateCore:decorate,monitor,getUICollapse,setUICollapse,auditInstrumentPatches:window.auditInstrumentPatches};persist();
+window.MB_V39={version:'v39',V,api,V38,state:S,SAMPLES,voiceGroups,hidden,chordTypes,clamp,persist,releaseKeys,releaseBass,setTranspose,decorateCore:decorate,monitor,carryForwardRecord,onFinishRecording,getUICollapse,setUICollapse,auditInstrumentPatches:window.auditInstrumentPatches};persist();
 })();
