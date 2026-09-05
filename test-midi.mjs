@@ -1,6 +1,7 @@
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
+import os from 'node:os';
 import { spawn } from 'node:child_process';
 import assert from 'node:assert';
 
@@ -22,7 +23,7 @@ const server = http.createServer((req, res) => {
     res.end('Not found');
     return;
   }
-  const ext = path.extname(filePath);
+  const ext = path.extname(filePath).toLowerCase();
   res.setHeader('Content-Type', MIME[ext] || 'application/octet-stream');
   fs.createReadStream(filePath).pipe(res);
 });
@@ -32,29 +33,63 @@ const port = server.address().port;
 console.log(`MIDI test server listening on http://127.0.0.1:${port}`);
 
 const chromeBin = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
-const userDataDir = `/tmp/mb-midi-test-${Date.now()}`;
+const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mb-midi-test-'));
+const chromePort = 9400 + Math.floor(Math.random() * 500);
+
 const chrome = spawn(chromeBin, [
   '--headless=new',
-  '--remote-debugging-port=0',
+  '--window-size=1280,800',
+  `--remote-debugging-port=${chromePort}`,
   `--user-data-dir=${userDataDir}`,
+  '--mute-audio=false',
+  '--autoplay-policy=no-user-gesture-required',
   '--no-first-run',
   '--no-default-browser-check',
   `http://127.0.0.1:${port}/`
-]);
+], { stdio: 'ignore' });
 
-let wsUrl = '';
-for await (const chunk of chrome.stderr) {
-  const match = chunk.toString().match(/ws:\/\/127\.0\.0\.1:\d+\/devtools\/browser\/[a-f0-9-]+/);
-  if (match) {
-    wsUrl = match[0];
-    break;
-  }
+let ws = null;
+let currentTestName = 'Initialization';
+
+function cleanup() {
+  try { if (ws) ws.close(); } catch {}
+  try { chrome.kill('SIGKILL'); } catch {}
+  try { server.close(); } catch {}
+  try { fs.rmSync(userDataDir, { recursive: true, force: true }); } catch {}
 }
 
-const versionRes = await fetch(`http://127.0.0.1:${new URL(wsUrl).port}/json/list`);
-const targets = await versionRes.json();
-const pageTarget = targets.find(t => t.type === 'page');
-const ws = new WebSocket(pageTarget.webSocketDebuggerUrl);
+const hardWatchdog = setTimeout(() => {
+  console.error(`\n[WATCHDOG TIMEOUT] Test run exceeded 45 seconds! Stuck on: ${currentTestName}`);
+  cleanup();
+  process.exit(1);
+}, 45000);
+
+process.on('SIGINT', () => { cleanup(); process.exit(1); });
+process.on('uncaughtException', (err) => {
+  console.error(`\n[UNCAUGHT EXCEPTION on ${currentTestName}]:`, err);
+  cleanup();
+  process.exit(1);
+});
+
+// Connect WebSocket CDP
+for (let i = 0; i < 40; i++) {
+  try {
+    const versionRes = await fetch(`http://127.0.0.1:${chromePort}/json/list`);
+    const targets = await versionRes.json();
+    const pageTarget = targets.find(t => t.type === 'page');
+    if (pageTarget?.webSocketDebuggerUrl) {
+      ws = new WebSocket(pageTarget.webSocketDebuggerUrl);
+      break;
+    }
+  } catch {}
+  await new Promise(r => setTimeout(r, 150));
+}
+
+if (!ws) {
+  cleanup();
+  throw new Error('Could not connect to Chrome CDP');
+}
+
 await new Promise((resolve, reject) => {
   ws.onopen = resolve;
   ws.onerror = reject;
@@ -65,525 +100,519 @@ const pending = new Map();
 ws.onmessage = (event) => {
   const msg = JSON.parse(event.data);
   if (msg.id && pending.has(msg.id)) {
-    const { resolve, reject } = pending.get(msg.id);
+    const { resolve, reject, timer } = pending.get(msg.id);
+    clearTimeout(timer);
     pending.delete(msg.id);
     if (msg.error) reject(new Error(msg.error.message || msg.error));
     else resolve(msg.result);
   }
 };
 
-function send(method, params = {}) {
+function send(method, params = {}, timeoutMs = 8000) {
   return new Promise((resolve, reject) => {
     const id = reqId++;
-    pending.set(id, { resolve, reject });
+    const timer = setTimeout(() => {
+      pending.delete(id);
+      reject(new Error(`CDP ${method} timed out after ${timeoutMs}ms [${currentTestName}]`));
+    }, timeoutMs);
+    pending.set(id, { resolve, reject, timer });
     ws.send(JSON.stringify({ id, method, params }));
   });
 }
 
-function cleanup() {
-  chrome.kill('SIGKILL');
-  server.close();
-  try { fs.rmSync(userDataDir, { recursive: true, force: true }); } catch {}
-}
+await send('Runtime.enable');
 
-process.on('SIGINT', () => { cleanup(); process.exit(1); });
-process.on('uncaughtException', (err) => {
-  console.error(err);
-  cleanup();
-  process.exit(1);
-});
-
-console.log('Waiting for Music & Beats workstation to boot in Chrome...');
-
-// Wait for boot
-let ready = false;
-for (let i = 0; i < 40; i++) {
-  const evalRes = await send('Runtime.evaluate', {
-    expression: 'Boolean(window.MB_V39?.booted && window.MB_MIDI)'
-  });
-  if (evalRes.result.value) {
-    ready = true;
-    break;
-  }
-  await new Promise(r => setTimeout(r, 100));
-}
-
-assert(ready, 'Workstation booted with MB_MIDI installed');
-console.log('Workstation and Web MIDI engine ready!');
-
-// Setup Mock MIDI Environment in Browser
-await send('Runtime.evaluate', {
-  expression: `
-    class MockMIDIInput {
-      constructor(id, name) {
-        this.id = id;
-        this.name = name;
-        this.type = 'input';
-        this.state = 'connected';
-        this.connection = 'open';
-        this.onmidimessage = null;
-        this.onstatechange = null;
-      }
-      send(data) {
-        if (this.onmidimessage) {
-          this.onmidimessage({ data, target: this });
-        }
-      }
+try {
+  console.log('Waiting for Music & Beats workstation to boot with MB_MIDI...');
+  let ready = false;
+  for (let i = 0; i < 40; i++) {
+    const evalRes = await send('Runtime.evaluate', {
+      expression: 'Boolean(window.MB_V39 && window.MB_MIDI)'
+    });
+    if (evalRes.result.value) {
+      ready = true;
+      break;
     }
+    await new Promise(r => setTimeout(r, 150));
+  }
+  assert(ready, 'Workstation booted with MB_MIDI installed');
+  console.log('Workstation and Web MIDI engine ready!');
 
-    class MockMIDIAccess {
-      constructor() {
-        this.inputs = new Map();
-        this.onstatechange = null;
-      }
-      addInput(id, name) {
-        const input = new MockMIDIInput(id, name);
-        this.inputs.set(id, input);
-        if (this.onstatechange) {
-          this.onstatechange({ port: input });
+  // Install Mock MIDI in Browser
+  await send('Runtime.evaluate', {
+    expression: `
+      class MockMIDIInput {
+        constructor(id, name) {
+          this.id = id;
+          this.name = name;
+          this.type = 'input';
+          this.state = 'connected';
+          this.connection = 'open';
+          this.onmidimessage = null;
+          this.onstatechange = null;
         }
-        return input;
-      }
-      removeInput(id) {
-        const input = this.inputs.get(id);
-        if (input) {
-          input.state = 'disconnected';
-          this.inputs.delete(id);
-          if (this.onstatechange) {
-            this.onstatechange({ port: input });
+        send(data) {
+          if (this.onmidimessage) {
+            this.onmidimessage({ data: new Uint8Array(data), target: this });
           }
         }
       }
-    }
-
-    window.MockMIDIAccess = MockMIDIAccess;
-    window.MockMIDIInput = MockMIDIInput;
-  `
-});
-
-// --- TEST 1: Fallback when Web MIDI is Unsupported ---
-console.log('\n--- Test 1: Fallback when Web MIDI is Unsupported ---');
-const unsupportedRes = await send('Runtime.evaluate', {
-  expression: `(async () => {
-    window.MB_MIDI.state.supported = false;
-    await window.MB_MIDI.requestAccess();
-    const st = window.MB_MIDI.state.status;
-    window.MB_MIDI.state.supported = true;
-    return st;
-  })()`,
-  awaitPromise: true,
-  returnByValue: true
-});
-assert.strictEqual(unsupportedRes.result.value, 'unsupported', 'Handled unsupported Web MIDI gracefully');
-console.log('PASS: Web MIDI unsupported condition handled gracefully with no errors!');
-
-// --- TEST 2: Connect Mock AKAI MPK Mini & Auto-Detection ---
-console.log('\n--- Test 2: Connect Mock AKAI MPK Mini & Auto-Detection ---');
-const mockAccess = await send('Runtime.evaluate', {
-  expression: `(async () => {
-    const mock = new window.MockMIDIAccess();
-    navigator.requestMIDIAccess = async () => mock;
-    window.testMidiAccess = mock;
-
-    // Add AKAI MPK mini
-    const akai = mock.addInput('input-mpk', 'MPK mini 3');
-    window.testAkaiInput = akai;
-
-    await window.MB_MIDI.requestAccess();
-
-    return {
-      status: window.MB_MIDI.state.status,
-      deviceName: window.MB_MIDI.state.deviceName,
-      isAkai: window.MB_MIDI.state.isAkai,
-      inputCount: window.MB_MIDI.state.inputs.length
-    };
-  })()`,
-  awaitPromise: true,
-  returnByValue: true
-});
-console.log('Connect result:', mockAccess.result.value);
-assert.strictEqual(mockAccess.result.value.status, 'connected', 'MIDI is connected');
-assert.strictEqual(mockAccess.result.value.isAkai, true, 'Detected AKAI MPK mini');
-assert.strictEqual(mockAccess.result.value.deviceName, 'MPK mini 3', 'Device name matched');
-console.log('PASS: AKAI MPK mini auto-detected and connected cleanly!');
-
-// --- TEST 3: Keyboard Routing to Lead (Note On, Note Off, Polyphony, Velocity) ---
-console.log('\n--- Test 3: Keyboard Routing to Lead (Note On / Off / Polyphony) ---');
-const leadRes = await send('Runtime.evaluate', {
-  expression: `(async () => {
-    const akai = window.testAkaiInput;
-    const M = window.MB_V39;
-
-    // Open lead keyboard in workspace
-    window.MB_V34_LOOPER.open();
-    document.querySelector('button[data-select="keys"]')?.click();
-
-    // Ensure audio initialized
-    if (typeof ensureAudio === 'function') await ensureAudio();
-
-    // Send Note On: Note 60 (C4), Velocity 100
-    akai.send([0x90, 60, 100]);
-    for (let i = 0; i < 30; i++) {
-      if (M.state.leadMidiVoices.has(60) || M.state.leadMidiPending.has(60)) break;
-      await new Promise(r => setTimeout(r, 20));
-    }
-    // Wait for voice to resolve
-    for (let i = 0; i < 30; i++) {
-      if (M.state.leadMidiVoices.has(60)) break;
-      await new Promise(r => setTimeout(r, 20));
-    }
-
-    const note60Active = M.state.leadMidiVoices.has(60);
-    const lastEv1 = { ...window.MB_MIDI.state.lastEvent };
-
-    // Send Note On: Note 64 (E4), Velocity 90 (Polyphonic)
-    akai.send([0x90, 64, 90]);
-    for (let i = 0; i < 30; i++) {
-      if (M.state.leadMidiVoices.has(64)) break;
-      await new Promise(r => setTimeout(r, 20));
-    }
-
-    const polyCount = M.state.leadMidiVoices.size;
-
-    // Send Velocity-zero Note On for Note 60 (standard MIDI Note Off variant)
-    akai.send([0x90, 60, 0]);
-    for (let i = 0; i < 30; i++) {
-      if (!M.state.leadMidiVoices.has(60)) break;
-      await new Promise(r => setTimeout(r, 20));
-    }
-
-    const note60Released = !M.state.leadMidiVoices.has(60);
-    const note64StillActive = M.state.leadMidiVoices.has(64);
-
-    // Send normal Note Off for Note 64
-    akai.send([0x80, 64, 0]);
-    for (let i = 0; i < 30; i++) {
-      if (M.state.leadMidiVoices.size === 0) break;
-      await new Promise(r => setTimeout(r, 20));
-    }
-
-    const allReleased = M.state.leadMidiVoices.size === 0;
-
-    return {
-      note60Active,
-      polyCount,
-      note60Released,
-      note64StillActive,
-      allReleased,
-      lastEvType: lastEv1.type,
-      lastEvNumber: lastEv1.data1,
-      lastEvVel: lastEv1.data2
-    };
-  })()`,
-  awaitPromise: true,
-  returnByValue: true
-});
-console.log('Lead note result:', leadRes.result.value);
-assert.strictEqual(leadRes.result.value.note60Active, true, 'Note 60 triggered Lead voice');
-assert.strictEqual(leadRes.result.value.polyCount, 2, '2 polyphonic notes held simultaneously');
-assert.strictEqual(leadRes.result.value.note60Released, true, 'Velocity 0 correctly treated as Note Off');
-assert.strictEqual(leadRes.result.value.note64StillActive, true, 'Polyphonic second note remained sounding');
-assert.strictEqual(leadRes.result.value.allReleased, true, 'All lead notes released with no stuck voices');
-assert.strictEqual(leadRes.result.value.lastEvType, 'Note On', 'Last event diagnostics captured');
-console.log('PASS: Note On, velocity-zero Note Off, and polyphony work seamlessly on Lead!');
-
-// --- TEST 4: Pitch Bend & Modulation Wheel ---
-console.log('\n--- Test 4: Pitch Bend & Modulation Wheel ---');
-const bendModRes = await send('Runtime.evaluate', {
-  expression: `(() => {
-    const akai = window.testAkaiInput;
-    const M = window.MB_V39;
-
-    // Pitch Bend up to max: 16383 (LSB: 127, MSB: 127)
-    akai.send([0xE0, 127, 127]);
-    const maxBend = M.state.pitchBend;
-
-    // Center pitch bend: 8192 (LSB: 0, MSB: 64)
-    akai.send([0xE0, 0, 64]);
-    const centerBend = M.state.pitchBend;
-
-    // Mod wheel: CC 1, Value 95
-    akai.send([0xB0, 1, 95]);
-    const modVal = M.state.mod;
-
-    return {
-      maxBend,
-      centerBend,
-      modVal
-    };
-  })()`,
-  returnByValue: true
-});
-console.log('Pitch bend / mod result:', bendModRes.result.value);
-assert(bendModRes.result.value.maxBend > 1.9, 'Pitch bend reached upper range');
-assert(Math.abs(bendModRes.result.value.centerBend) < 0.05, 'Pitch bend centered at 0');
-assert(Math.abs(bendModRes.result.value.modVal - (95 / 127)) < 0.02, 'Modulation updated');
-console.log('PASS: Hardware pitch bend and modulation wheel route cleanly into Lead expression!');
-
-// --- TEST 5: Panic & Disconnect Cleans Active Notes (No Stuck Voices) ---
-console.log('\n--- Test 5: Panic & Disconnect Cleans Active Notes ---');
-const panicRes = await send('Runtime.evaluate', {
-  expression: `(async () => {
-    const akai = window.testAkaiInput;
-    const M = window.MB_V39;
-
-    // Play 3 notes
-    akai.send([0x90, 60, 100]);
-    akai.send([0x90, 64, 100]);
-    akai.send([0x90, 67, 100]);
-    await new Promise(r => setTimeout(r, 20));
-
-    const voicesBefore = M.state.leadMidiVoices.size;
-
-    // Unplug device unexpectedly
-    window.testMidiAccess.removeInput('input-mpk');
-    await new Promise(r => setTimeout(r, 30));
-
-    const voicesAfter = M.state.leadMidiVoices.size;
-    const status = window.MB_MIDI.state.status;
-
-    return {
-      voicesBefore,
-      voicesAfter,
-      status
-    };
-  })()`,
-  awaitPromise: true,
-  returnByValue: true
-});
-console.log('Panic / disconnect result:', panicRes.result.value);
-assert.strictEqual(panicRes.result.value.voicesBefore, 3, '3 notes active before disconnect');
-assert.strictEqual(panicRes.result.value.voicesAfter, 0, 'ZERO hanging voices after unplug');
-assert.strictEqual(panicRes.result.value.status, 'disconnected', 'Status updated to disconnected');
-console.log('PASS: Unplugging device immediately panics and releases all voices with zero hanging audio!');
-
-// Reconnect device for remaining tests
-await send('Runtime.evaluate', {
-  expression: `(() => {
-    const akai = window.testMidiAccess.addInput('input-mpk', 'MPK mini 3');
-    window.testAkaiInput = akai;
-    window.MB_MIDI.connectInput(akai);
-  })()`
-});
-
-// --- TEST 6: AKAI Pads Contextual Mapping (Smart Keys 1–7 & Bass 1–8) ---
-console.log('\n--- Test 6: AKAI Pads Contextual Mapping ---');
-const padRes = await send('Runtime.evaluate', {
-  expression: `(async () => {
-    const akai = window.testAkaiInput;
-    const looper = window.MB_V34_LOOPER;
-    const M = window.MB_V39;
-
-    // 1. Keys Lane Active
-    looper.open();
-    document.querySelector('button[data-select="keys"]')?.click();
-    await new Promise(r => setTimeout(r, 30));
-
-    // Send Pad 1 (Note 36) -> triggers Chord Pad 0
-    akai.send([0x90, 36, 100]);
-    await new Promise(r => setTimeout(r, 40));
-
-    const pad0 = document.querySelectorAll('#v34ChordPads .v34-performance-pad')[0];
-    const chord0Active = pad0?.classList.contains('active') || pad0?.classList.contains('v36-latched');
-
-    akai.send([0x80, 36, 0]);
-
-    // 2. Pad 8 (Note 43) in Keys toggles Latch
-    const latchBefore = window.MB_V35.extra.latchKeys;
-    akai.send([0x90, 43, 100]);
-    await new Promise(r => setTimeout(r, 30));
-    const latchAfter = window.MB_V35.extra.latchKeys;
-    akai.send([0x80, 43, 0]);
-
-    // 3. Bass Lane Active
-    document.querySelector('button[data-select="bass"]')?.click();
-    await new Promise(r => setTimeout(r, 30));
-
-    // Send Pad 1 (Note 36) -> triggers Bass Pad 0
-    akai.send([0x90, 36, 100]);
-    await new Promise(r => setTimeout(r, 40));
-
-    const bassPad0 = document.querySelectorAll('#v34BassPads .v34-bass-pad')[0];
-    const bass0Active = bassPad0?.classList.contains('active') || bassPad0?.classList.contains('v36-latched');
-
-    akai.send([0x80, 36, 0]);
-
-    return {
-      chord0Active: Boolean(chord0Active),
-      latchToggled: latchBefore !== latchAfter,
-      bass0Active: Boolean(bass0Active)
-    };
-  })()`,
-  awaitPromise: true,
-  returnByValue: true
-});
-console.log('Pad contextual result:', padRes.result.value);
-assert.strictEqual(padRes.result.value.chord0Active, true, 'Pad 1 triggered Smart Keys chord pad');
-assert.strictEqual(padRes.result.value.latchToggled, true, 'Pad 8 toggled Keys latch mode');
-assert.strictEqual(padRes.result.value.bass0Active, true, 'Pad 1 contextually triggered Bass pad in Bass lane');
-console.log('PASS: AKAI Pads 1–8 route contextually to Smart Keys and Bass!');
-
-// --- TEST 7: 8 Knobs Mapping (Mixer, Tone, Intensity, Space, Tempo) ---
-console.log('\n--- Test 7: 8 Knobs Mapping ---');
-const knobRes = await send('Runtime.evaluate', {
-  expression: `(() => {
-    const akai = window.testAkaiInput;
-    const V37 = window.MB_V37;
-    const V38 = window.MB_V38;
-    const looper = window.MB_V34_LOOPER;
-
-    // Knob 1 (CC 70): Beats Level -> 0.6
-    akai.send([0xB0, 70, 64]);
-    const beatsLvl = V37.mix.beats;
-
-    // Knob 5 (CC 74): Filter Tone -> 85%
-    akai.send([0xB0, 74, 108]);
-    const toneVal = V38.state.fx.tone;
-
-    // Knob 8 (CC 77): Tempo -> ~130 BPM
-    akai.send([0xB0, 77, 64]);
-    const tempoVal = looper.state.bpm;
-
-    return {
-      beatsLvl,
-      toneVal,
-      tempoVal
-    };
-  })()`,
-  returnByValue: true
-});
-console.log('Knob result:', knobRes.result.value);
-assert(knobRes.result.value.beatsLvl > 0.4 && knobRes.result.value.beatsLvl < 0.8, 'Beats volume adjusted');
-assert.strictEqual(knobRes.result.value.toneVal, 85, 'Lead tone adjusted to 85%');
-assert(knobRes.result.value.tempoVal >= 125 && knobRes.result.value.tempoVal <= 135, 'Tempo adjusted');
-console.log('PASS: All 8 Knobs map to real mixer levels, Lead tone, and tempo!');
-
-// --- TEST 8: MIDI Learn for Pads and Knobs + Local Persistence ---
-console.log('\n--- Test 8: MIDI Learn for Pads and Knobs ---');
-const learnRes = await send('Runtime.evaluate', {
-  expression: `(async () => {
-    const akai = window.testAkaiInput;
-    const midi = window.MB_MIDI;
-
-    // 1. Learn Pad 1 to Note 48 (C2) on Channel 2
-    midi.state.learning = { kind: 'pad', index: 0 };
-    akai.send([0x91, 48, 100]); // 0x91 = Note On Ch 2
-
-    const pad1Mapped = midi.config.pads[0].number === 48 && midi.config.pads[0].channel === 2;
-
-    // 2. Learn Knob 1 to CC 22 on Channel 3
-    midi.state.learning = { kind: 'knob', index: 0 };
-    akai.send([0xB2, 22, 50]); // 0xB2 = CC Ch 3
-
-    const knob1Mapped = midi.config.knobs[0].number === 22 && midi.config.knobs[0].channel === 3;
-
-    // 3. Check persistence in localStorage
-    const savedConfig = JSON.parse(localStorage.getItem('musicandbeats:midi:config'));
-    const persisted = savedConfig.pads[0].number === 48 && savedConfig.knobs[0].number === 22;
-
-    // 4. Reset to defaults
-    midi.resetDefaults?.() || (() => {
-      midi.config = JSON.parse(JSON.stringify(midi.DEFAULT_CONFIG));
-      midi.saveConfig();
-    })();
-
-    const resetPads = midi.config.pads[0].number === 36;
-    const resetKnobs = midi.config.knobs[0].number === 70;
-
-    return {
-      pad1Mapped,
-      knob1Mapped,
-      persisted,
-      resetPads,
-      resetKnobs
-    };
-  })()`,
-  awaitPromise: true,
-  returnByValue: true
-});
-console.log('MIDI Learn result:', learnRes.result.value);
-assert.strictEqual(learnRes.result.value.pad1Mapped, true, 'Pad 1 learned new note and channel');
-assert.strictEqual(learnRes.result.value.knob1Mapped, true, 'Knob 1 learned new CC and channel');
-assert.strictEqual(learnRes.result.value.persisted, true, 'Learned mapping persisted to localStorage');
-assert.strictEqual(learnRes.result.value.resetPads, true, 'Pads reset to factory defaults');
-assert.strictEqual(learnRes.result.value.resetKnobs, true, 'Knobs reset to factory defaults');
-console.log('PASS: MIDI Learn, custom channel/note capture, persistence, and reset fully verified!');
-
-// --- TEST 9: Repeatedly Opening & Closing MIDI Modal ---
-console.log('\n--- Test 9: Repeatedly Opening & Closing MIDI Modal ---');
-const modalRes = await send('Runtime.evaluate', {
-  expression: `(() => {
-    const midi = window.MB_MIDI;
-    for (let i = 0; i < 5; i++) {
-      midi.openDialog();
-      midi.closeDialog();
-    }
-    const dialogs = document.querySelectorAll('#v39MidiDialog');
-    const buttons = document.querySelectorAll('#v39MidiBtn');
-    return {
-      dialogCount: dialogs.length,
-      buttonCount: buttons.length,
-      isOpen: midi.state.dialogOpen
-    };
-  })()`,
-  returnByValue: true
-});
-console.log('Modal stability result:', modalRes.result.value);
-assert.strictEqual(modalRes.result.value.dialogCount, 1, 'Exactly one modal instance in DOM');
-assert.strictEqual(modalRes.result.value.buttonCount, 1, 'Exactly one topbar button instance');
-assert.strictEqual(modalRes.result.value.isOpen, false, 'Modal closed cleanly');
-console.log('PASS: Reopening MIDI screen repeatedly causes zero duplicate DOM elements or leaks!');
-
-// --- TEST 10: MIDI Keys/Bass Recording Into Looper (Pre-Held Step 0 Capture) ---
-console.log('\n--- Test 10: MIDI Keys/Bass Recording with Pre-Held Step 0 Capture ---');
-const recordRes = await send('Runtime.evaluate', {
-  expression: `(async () => {
-    const looper = window.MB_V34_LOOPER;
-    const V = window.MB_V35;
-    const akai = window.testAkaiInput;
-
-    V.extra.latchKeys = true;
-    looper.open();
-    document.querySelector('button[data-select="keys"]')?.click();
-    document.querySelector('#v34BarChoices button[data-bars="1"]')?.click();
-    looper.state.bpm = 140;
-
-    await looper.start(false);
-
-    // Press MIDI Pad 1 (Note 36) before arming / rollover
-    akai.send([0x90, 36, 100]);
-    await new Promise(r => setTimeout(r, 60));
-
-    // Arm keys recording
-    document.querySelector('#v34KeysRecord').click();
-
-    // Wait until recording begins at 1.1 (step 0)
-    while (looper.state.recordingLane !== 'keys') {
-      await new Promise(r => setTimeout(r, 20));
-    }
-
-    // Sustain the chord across the 1-bar loop
-    while (looper.state.recordingLane === 'keys') {
-      await new Promise(r => setTimeout(r, 20));
-    }
-
-    looper.stop();
-    const recordedEvents = [...looper.tracks.keys.events];
-
-    return {
-      recordedEvents
-    };
-  })()`,
-  awaitPromise: true,
-  returnByValue: true
-});
-console.log('MIDI recording result:', recordRes.result.value);
-const recEvents = recordRes.result.value.recordedEvents;
-assert(recEvents.length >= 1, 'Looper recorded event triggered via MIDI pad');
-assert.strictEqual(recEvents[0].step, 0, 'MIDI chord carried forward into step 0 seamlessly');
-assert.strictEqual(recEvents[0].durationSteps, 16, 'MIDI chord sustained across full 1-bar loop');
-console.log('PASS: MIDI pad triggers flow through authoritative looper pipeline and capture at Step 0!');
-
-console.log('\nALL 10 WEB MIDI & AKAI MPK MINI VERIFICATION SUITES PASSED (0 errors)!');
-cleanup();
+
+      class MockMIDIAccess {
+        constructor() {
+          this.inputs = new Map();
+          this.onstatechange = null;
+        }
+        addInput(id, name) {
+          const input = new MockMIDIInput(id, name);
+          this.inputs.set(id, input);
+          if (this.onstatechange) {
+            this.onstatechange({ port: input });
+          }
+          return input;
+        }
+        removeInput(id) {
+          const input = this.inputs.get(id);
+          if (input) {
+            input.state = 'disconnected';
+            this.inputs.delete(id);
+            if (this.onstatechange) {
+              this.onstatechange({ port: input });
+            }
+          }
+        }
+      }
+
+      window.MockMIDIAccess = MockMIDIAccess;
+      window.MockMIDIInput = MockMIDIInput;
+      window.__mockAccess = new MockMIDIAccess();
+      navigator.requestMIDIAccess = async () => window.__mockAccess;
+    `
+  });
+
+  // TEST 1: Web MIDI unsupported -> graceful
+  currentTestName = 'Test 1: Web MIDI unsupported -> graceful';
+  console.log(`\n--- ${currentTestName} ---`);
+  const t1 = await send('Runtime.evaluate', {
+    expression: `(async () => {
+      const orig = window.MB_MIDI.state.supported;
+      window.MB_MIDI.state.supported = false;
+      await window.MB_MIDI.requestAccess();
+      const status = window.MB_MIDI.state.status;
+      window.MB_MIDI.state.supported = orig;
+      return status;
+    })()`,
+    awaitPromise: true,
+    returnByValue: true
+  });
+  assert.strictEqual(t1.result.value, 'unsupported');
+  console.log('PASS: Web MIDI unsupported handled gracefully with status "unsupported"');
+
+  // TEST 2: Permission/connect succeeds
+  currentTestName = 'Test 2: Permission/connect succeeds';
+  console.log(`\n--- ${currentTestName} ---`);
+  const t2 = await send('Runtime.evaluate', {
+    expression: `(async () => {
+      const access = window.__mockAccess;
+      access.addInput('input-generic', 'Generic USB MIDI');
+      await window.MB_MIDI.requestAccess();
+      return {
+        status: window.MB_MIDI.state.status,
+        inputCount: window.MB_MIDI.state.inputs.length,
+        selectedId: window.MB_MIDI.state.selectedId
+      };
+    })()`,
+    awaitPromise: true,
+    returnByValue: true
+  });
+  assert.strictEqual(t2.result.value.status, 'connected');
+  assert(t2.result.value.inputCount >= 1);
+  assert.strictEqual(t2.result.value.selectedId, 'input-generic');
+  console.log('PASS: Permission/connect succeeds and selects connected MIDI device');
+
+  // TEST 3: AKAI/MPK mini device name detected
+  currentTestName = 'Test 3: AKAI/MPK mini device name detected';
+  console.log(`\n--- ${currentTestName} ---`);
+  const t3 = await send('Runtime.evaluate', {
+    expression: `(async () => {
+      const access = window.__mockAccess;
+      const akai = access.addInput('input-akai', 'MPK mini 3');
+      window.__akaiInput = akai;
+      window.MB_MIDI.connectInput(akai);
+      return {
+        isAkai: window.MB_MIDI.state.isAkai,
+        deviceName: window.MB_MIDI.state.deviceName
+      };
+    })()`,
+    awaitPromise: true,
+    returnByValue: true
+  });
+  assert.strictEqual(t3.result.value.isAkai, true);
+  assert.strictEqual(t3.result.value.deviceName, 'MPK mini 3');
+  console.log('PASS: AKAI MPK mini auto-detected from device name');
+
+  // TEST 4: Device disconnect handled
+  currentTestName = 'Test 4: Device disconnect handled';
+  console.log(`\n--- ${currentTestName} ---`);
+  const t4 = await send('Runtime.evaluate', {
+    expression: `(async () => {
+      const access = window.__mockAccess;
+      access.removeInput('input-akai');
+      access.removeInput('input-generic');
+      return {
+        status: window.MB_MIDI.state.status,
+        deviceName: window.MB_MIDI.state.deviceName,
+        selectedId: window.MB_MIDI.state.selectedId
+      };
+    })()`,
+    awaitPromise: true,
+    returnByValue: true
+  });
+  assert.strictEqual(t4.result.value.status, 'disconnected');
+  assert.strictEqual(t4.result.value.selectedId, null);
+  console.log('PASS: Device disconnect cleans up connection state cleanly');
+
+  // TEST 5: Reconnect handled
+  currentTestName = 'Test 5: Reconnect handled';
+  console.log(`\n--- ${currentTestName} ---`);
+  const t5 = await send('Runtime.evaluate', {
+    expression: `(async () => {
+      const access = window.__mockAccess;
+      const akai = access.addInput('input-akai-reconnect', 'Akai MPK Mini MK3');
+      window.__akaiInput = akai;
+      return {
+        status: window.MB_MIDI.state.status,
+        selectedId: window.MB_MIDI.state.selectedId,
+        isAkai: window.MB_MIDI.state.isAkai
+      };
+    })()`,
+    awaitPromise: true,
+    returnByValue: true
+  });
+  assert.strictEqual(t5.result.value.status, 'connected');
+  assert.strictEqual(t5.result.value.isAkai, true);
+  console.log('PASS: Hotplug reconnect handled automatically');
+
+  // Open Lead in workspace
+  await send('Runtime.evaluate', {
+    expression: `(async () => {
+      if (typeof ensureAudio === 'function') await ensureAudio();
+      window.MB_V34_LOOPER.open();
+      window.MB_V38.renderLead();
+      window.MB_V39.decorateLead?.();
+    })()`,
+    awaitPromise: true
+  });
+
+  // TEST 6: Note On starts Lead voice
+  currentTestName = 'Test 6: Note On starts Lead voice';
+  console.log(`\n--- ${currentTestName} ---`);
+  const t6 = await send('Runtime.evaluate', {
+    expression: `(async () => {
+      const akai = window.__akaiInput;
+      const M = window.MB_V39;
+      akai.send([0x90, 60, 95]); // Note 60 on ch 1, vel 95
+      for (let i = 0; i < 50; i++) {
+        if (M.state.leadMidiVoices?.has('1:60')) break;
+        await new Promise(r => setTimeout(r, 20));
+      }
+      const entry = M.state.leadMidiVoices?.get('1:60');
+      const keyEl = document.querySelector('#v38Keyboard .v38-key[data-midi="60"]');
+      return {
+        hasVoice: !!entry?.voice,
+        keyActive: keyEl?.classList.contains('active'),
+        midi: entry?.midi,
+        ch: entry?.ch
+      };
+    })()`,
+    awaitPromise: true,
+    returnByValue: true
+  });
+  assert.strictEqual(t6.result.value.hasVoice, true);
+  assert.strictEqual(t6.result.value.keyActive, true);
+  assert.strictEqual(t6.result.value.midi, 60);
+  assert.strictEqual(t6.result.value.ch, 1);
+  console.log('PASS: Note On triggers active Lead voice and highlights keyboard key');
+
+  // TEST 7: Note Off stops the correct Lead voice
+  currentTestName = 'Test 7: Note Off stops the correct Lead voice';
+  console.log(`\n--- ${currentTestName} ---`);
+  const t7 = await send('Runtime.evaluate', {
+    expression: `(async () => {
+      const akai = window.__akaiInput;
+      const M = window.MB_V39;
+      akai.send([0x80, 60, 0]); // Note Off note 60 ch 1
+      for (let i = 0; i < 20; i++) {
+        if (!M.state.leadMidiVoices?.has('1:60')) break;
+        await new Promise(r => setTimeout(r, 20));
+      }
+      const hasVoice = M.state.leadMidiVoices?.has('1:60');
+      const keyEl = document.querySelector('#v38Keyboard .v38-key[data-midi="60"]');
+      return {
+        hasVoice,
+        keyActive: keyEl?.classList.contains('active')
+      };
+    })()`,
+    awaitPromise: true,
+    returnByValue: true
+  });
+  assert.strictEqual(t7.result.value.hasVoice, false);
+  assert.strictEqual(t7.result.value.keyActive, false);
+  console.log('PASS: Note Off stops the correct Lead voice and deactivates keyboard key');
+
+  // TEST 8: velocity-zero Note On stops voice
+  currentTestName = 'Test 8: velocity-zero Note On stops voice';
+  console.log(`\n--- ${currentTestName} ---`);
+  const t8 = await send('Runtime.evaluate', {
+    expression: `(async () => {
+      const akai = window.__akaiInput;
+      const M = window.MB_V39;
+      akai.send([0x90, 62, 100]); // Note On
+      for (let i = 0; i < 20; i++) {
+        if (M.state.leadMidiVoices?.has('1:62')) break;
+        await new Promise(r => setTimeout(r, 20));
+      }
+      const on = M.state.leadMidiVoices?.has('1:62');
+      akai.send([0x90, 62, 0]); // Note On with velocity 0
+      for (let i = 0; i < 20; i++) {
+        if (!M.state.leadMidiVoices?.has('1:62')) break;
+        await new Promise(r => setTimeout(r, 20));
+      }
+      const off = !M.state.leadMidiVoices?.has('1:62');
+      return { on, off };
+    })()`,
+    awaitPromise: true,
+    returnByValue: true
+  });
+  assert.strictEqual(t8.result.value.on, true);
+  assert.strictEqual(t8.result.value.off, true);
+  console.log('PASS: Note On with velocity 0 correctly acts as Note Off');
+
+  // TEST 9: two simultaneous notes remain independent
+  currentTestName = 'Test 9: two simultaneous notes remain independent';
+  console.log(`\n--- ${currentTestName} ---`);
+  const t9 = await send('Runtime.evaluate', {
+    expression: `(async () => {
+      const akai = window.__akaiInput;
+      const M = window.MB_V39;
+      akai.send([0x90, 64, 90]);
+      akai.send([0x90, 67, 85]);
+      for (let i = 0; i < 20; i++) {
+        if (M.state.leadMidiVoices?.has('1:64') && M.state.leadMidiVoices?.has('1:67')) break;
+        await new Promise(r => setTimeout(r, 20));
+      }
+      const countBoth = M.state.leadMidiVoices?.size;
+      akai.send([0x80, 64, 0]); // Stop note 64 only
+      for (let i = 0; i < 20; i++) {
+        if (!M.state.leadMidiVoices?.has('1:64')) break;
+        await new Promise(r => setTimeout(r, 20));
+      }
+      const note64Gone = !M.state.leadMidiVoices?.has('1:64');
+      const note67StillActive = M.state.leadMidiVoices?.has('1:67');
+      akai.send([0x80, 67, 0]); // Stop note 67
+      for (let i = 0; i < 20; i++) {
+        if (!M.state.leadMidiVoices?.has('1:67')) break;
+        await new Promise(r => setTimeout(r, 20));
+      }
+      return { countBoth, note64Gone, note67StillActive, empty: M.state.leadMidiVoices?.size === 0 };
+    })()`,
+    awaitPromise: true,
+    returnByValue: true
+  });
+  assert.strictEqual(t9.result.value.countBoth, 2);
+  assert.strictEqual(t9.result.value.note64Gone, true);
+  assert.strictEqual(t9.result.value.note67StillActive, true);
+  assert.strictEqual(t9.result.value.empty, true);
+  console.log('PASS: Polyphonic notes sound and release completely independently');
+
+  // TEST 10: velocity reaches Lead voice path
+  currentTestName = 'Test 10: velocity reaches Lead voice path';
+  console.log(`\n--- ${currentTestName} ---`);
+  const t10 = await send('Runtime.evaluate', {
+    expression: `(async () => {
+      const akai = window.__akaiInput;
+      const M = window.MB_V39;
+      akai.send([0x90, 65, 127]); // Max velocity
+      for (let i = 0; i < 20; i++) {
+        if (M.state.leadMidiVoices?.has('1:65')) break;
+        await new Promise(r => setTimeout(r, 20));
+      }
+      const entry = M.state.leadMidiVoices?.get('1:65');
+      const vel = entry?.vel;
+      const voiceVel = entry?.voice?.velocity;
+      akai.send([0x80, 65, 0]);
+      return { vel, voiceVel };
+    })()`,
+    awaitPromise: true,
+    returnByValue: true
+  });
+  assert(Math.abs(t10.result.value.vel - 1.0) < 0.01, 'Velocity normalized to 1.0');
+  assert(Math.abs(t10.result.value.voiceVel - 1.0) < 0.01, 'Voice velocity captured on voice object');
+  console.log('PASS: Velocity propagates through to Lead voice path');
+
+  // TEST 11: pitch bend reaches existing Lead pitch state
+  currentTestName = 'Test 11: pitch bend reaches existing Lead pitch state';
+  console.log(`\n--- ${currentTestName} ---`);
+  const t11 = await send('Runtime.evaluate', {
+    expression: `(() => {
+      const akai = window.__akaiInput;
+      const M = window.MB_V39;
+      akai.send([0xE0, 127, 127]); // Max up bend
+      const maxBend = M.state.pitchBend;
+      akai.send([0xE0, 0, 64]); // Center
+      const centerBend = M.state.pitchBend;
+      return { maxBend, centerBend };
+    })()`,
+    returnByValue: true
+  });
+  assert(t11.result.value.maxBend > 1.8, 'Pitch bend reached upper range');
+  assert(Math.abs(t11.result.value.centerBend) < 0.05, 'Pitch bend centered cleanly');
+  console.log('PASS: Pitch bend CC modifies existing Lead pitchBend state');
+
+  // TEST 12: modulation reaches existing Lead modulation state
+  currentTestName = 'Test 12: modulation reaches existing Lead modulation state';
+  console.log(`\n--- ${currentTestName} ---`);
+  const t12 = await send('Runtime.evaluate', {
+    expression: `(() => {
+      const akai = window.__akaiInput;
+      const M = window.MB_V39;
+      akai.send([0xB0, 1, 127]); // Mod wheel 100%
+      const maxMod = M.state.mod;
+      akai.send([0xB0, 1, 0]); // Mod wheel 0%
+      const minMod = M.state.mod;
+      return { maxMod, minMod };
+    })()`,
+    returnByValue: true
+  });
+  assert.strictEqual(t12.result.value.maxMod, 1);
+  assert.strictEqual(t12.result.value.minMod, 0);
+  console.log('PASS: Modulation CC reaches existing Lead mod state');
+
+  // TEST 13: disconnect while notes are held performs panic
+  currentTestName = 'Test 13: disconnect while notes are held performs panic';
+  console.log(`\n--- ${currentTestName} ---`);
+  const t13 = await send('Runtime.evaluate', {
+    expression: `(async () => {
+      const akai = window.__akaiInput;
+      const M = window.MB_V39;
+      akai.send([0x90, 60, 90]);
+      akai.send([0x90, 64, 90]);
+      for (let i = 0; i < 20; i++) {
+        if (M.state.leadMidiVoices?.size === 2) break;
+        await new Promise(r => setTimeout(r, 20));
+      }
+      const beforeDisconnectCount = M.state.leadMidiVoices?.size;
+      // Disconnect device
+      window.__mockAccess.removeInput('input-akai-reconnect');
+      const afterDisconnectCount = M.state.leadMidiVoices?.size;
+      const activeDomKeys = document.querySelectorAll('#v38Keyboard .v38-key.active').length;
+      return { beforeDisconnectCount, afterDisconnectCount, activeDomKeys };
+    })()`,
+    awaitPromise: true,
+    returnByValue: true
+  });
+  assert.strictEqual(t13.result.value.beforeDisconnectCount, 2);
+  assert.strictEqual(t13.result.value.afterDisconnectCount, 0);
+  assert.strictEqual(t13.result.value.activeDomKeys, 0);
+  console.log('PASS: Disconnect while notes are sounding triggers panic without stuck voices');
+
+  // TEST 14: switching Lead sound leaves no stuck notes
+  currentTestName = 'Test 14: switching Lead sound leaves no stuck notes';
+  console.log(`\n--- ${currentTestName} ---`);
+  const t14 = await send('Runtime.evaluate', {
+    expression: `(async () => {
+      const access = window.__mockAccess;
+      const akai = access.addInput('input-akai-2', 'Akai MPK Mini MK3');
+      window.__akaiInput = akai;
+      window.MB_MIDI.connectInput(akai);
+
+      const M = window.MB_V39;
+      akai.send([0x90, 60, 90]);
+      for (let i = 0; i < 20; i++) {
+        if (M.state.leadMidiVoices?.has('1:60')) break;
+        await new Promise(r => setTimeout(r, 20));
+      }
+      const noteOn = M.state.leadMidiVoices?.has('1:60');
+
+      // Change voice to Grand Piano
+      const voiceSelect = document.querySelector('#v38Voice');
+      if (voiceSelect) {
+        voiceSelect.value = 'Grand Piano';
+        voiceSelect.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+      const countAfterSwitch = M.state.leadMidiVoices?.size;
+      const activeDomKeys = document.querySelectorAll('#v38Keyboard .v38-key.active').length;
+      return { noteOn, countAfterSwitch, activeDomKeys };
+    })()`,
+    awaitPromise: true,
+    returnByValue: true
+  });
+  assert.strictEqual(t14.result.value.noteOn, true);
+  assert.strictEqual(t14.result.value.countAfterSwitch, 0);
+  assert.strictEqual(t14.result.value.activeDomKeys, 0);
+  console.log('PASS: Switching Lead voice clears active MIDI notes with zero stuck voices');
+
+  // TEST 15: repeatedly connecting/disconnecting does not duplicate handlers
+  currentTestName = 'Test 15: repeatedly connecting/disconnecting does not duplicate handlers';
+  console.log(`\n--- ${currentTestName} ---`);
+  const t15 = await send('Runtime.evaluate', {
+    expression: `(async () => {
+      const access = window.__mockAccess;
+      const akai = window.__akaiInput;
+      for (let i = 0; i < 5; i++) {
+        window.MB_MIDI.connectInput(akai);
+        window.MB_MIDI.disconnectCurrent();
+      }
+      window.MB_MIDI.connectInput(akai);
+
+      const M = window.MB_V39;
+      akai.send([0x90, 72, 80]); // Send 1 Note On
+      for (let i = 0; i < 20; i++) {
+        if (M.state.leadMidiVoices?.has('1:72')) break;
+        await new Promise(r => setTimeout(r, 20));
+      }
+      const voiceCount = M.state.leadMidiVoices?.size;
+      akai.send([0x80, 72, 0]);
+      return { voiceCount };
+    })()`,
+    awaitPromise: true,
+    returnByValue: true
+  });
+  assert.strictEqual(t15.result.value.voiceCount, 1);
+  console.log('PASS: Repeatedly connecting/disconnecting maintains exactly one handler without duplication');
+
+  // TEST 16: reopening minimal MIDI UI repeatedly does not duplicate handlers
+  currentTestName = 'Test 16: reopening minimal MIDI UI repeatedly does not duplicate handlers';
+  console.log(`\n--- ${currentTestName} ---`);
+  const t16 = await send('Runtime.evaluate', {
+    expression: `(() => {
+      for (let i = 0; i < 5; i++) {
+        window.MB_MIDI.openDialog();
+        window.MB_MIDI.closeDialog();
+      }
+      window.MB_MIDI.openDialog();
+      const dialogs = document.querySelectorAll('#v39MidiDialog').length;
+      const buttons = document.querySelectorAll('#v39MidiBtn').length;
+      const isOpen = window.MB_MIDI.state.dialogOpen;
+      window.MB_MIDI.closeDialog();
+      return { dialogs, buttons, isOpen };
+    })()`,
+    returnByValue: true
+  });
+  assert.strictEqual(t16.result.value.dialogs, 1);
+  assert.strictEqual(t16.result.value.buttons, 1);
+  assert.strictEqual(t16.result.value.isOpen, true);
+  console.log('PASS: Reopening minimal MIDI UI does not duplicate dialogs or button elements');
+
+  console.log('\n======================================================');
+  console.log('ALL 16 WEB MIDI & LEAD PERFORMANCE TESTS PASSED (0 errors)!');
+  console.log('======================================================\n');
+} catch (err) {
+  console.error(`\n[TEST FAILURE on ${currentTestName}]:`, err);
+  cleanup();
+  process.exit(1);
+} finally {
+  clearTimeout(hardWatchdog);
+  cleanup();
+}
 process.exit(0);

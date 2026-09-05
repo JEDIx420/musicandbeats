@@ -22,6 +22,7 @@ jobs:
           node --check v38-stability.js
           node --check v39-core.js
           node --check v39-lead.js
+          node --check v39-midi.js
           node --check v39.js
           node --check update-guard.js
           node --check sw.js

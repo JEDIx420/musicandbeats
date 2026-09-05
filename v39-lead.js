@@ -5,7 +5,7 @@ Object.assign(S,{leadPointers:new Map(),leadPending:new Map(),leadMidiVoices:new
 const curve=a=>{const n=2048,x=new Float32Array(n);for(let i=0;i<n;i++){const v=i*2/n-1;x[i]=(1+a)*v/(1+a*Math.abs(v))}return x};
 function impulse(sec,dec){const r=ctx.sampleRate,n=Math.max(1,r*sec|0),b=ctx.createBuffer(2,n,r);for(let c=0;c<2;c++){const d=b.getChannelData(c);for(let i=0;i<n;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/n,dec)}return b}
 function cleanFX(){for(const l of S.fxLfos){try{l.stop()}catch{}}S.fxLfos=[];for(const n of S.fxNodes){try{n.disconnect()}catch{}}S.fxNodes=[];S.fxInput=S.fxOutput=null}
-function buildFX(){if(!ctx)return null;stopLead();cleanFX();const f=V38.state.fx||V38.FX_PRESETS.Studio,I=(+f.intensity||0)/100,W=(+f.wet||0)/100,input=ctx.createGain(),tone=ctx.createBiquadFilter(),drive=ctx.createWaveShaper();tone.type='lowpass';tone.frequency.value=1800+Math.pow((+f.tone||70)/100,1.5)*15000;tone.Q.value=.25;drive.curve=curve(f.drive==='Warm'?1.2:f.drive==='Crunch'?4:f.drive==='Fuzz'?12:0);drive.oversample='2x';input.connect(tone).connect(drive);let cur=drive;S.fxNodes.push(input,tone,drive);
+function buildFX(){if(!ctx)return null;for(const h of S.leadPointers.values()){h.voice?.stop?.();h.key?.classList.remove('active')}S.leadPointers.clear();for(const h of (S.leadMidiVoices?.values()||[])){h.voice?.stop?.();h.key?.classList.remove('active')}S.leadMidiVoices?.clear();cleanFX();const f=V38.state.fx||V38.FX_PRESETS.Studio,I=(+f.intensity||0)/100,W=(+f.wet||0)/100,input=ctx.createGain(),tone=ctx.createBiquadFilter(),drive=ctx.createWaveShaper();tone.type='lowpass';tone.frequency.value=1800+Math.pow((+f.tone||70)/100,1.5)*15000;tone.Q.value=.25;drive.curve=curve(f.drive==='Warm'?1.2:f.drive==='Crunch'?4:f.drive==='Fuzz'?12:0);drive.oversample='2x';input.connect(tone).connect(drive);let cur=drive;S.fxNodes.push(input,tone,drive);
 if(f.mod==='Chorus'||f.mod==='Vibrato'){const dry=ctx.createGain(),del=ctx.createDelay(.06),wg=ctx.createGain(),sum=ctx.createGain(),lfo=ctx.createOscillator(),lg=ctx.createGain();dry.gain.value=f.mod==='Vibrato'?.18:.72;wg.gain.value=f.mod==='Vibrato'?.92:.48;del.delayTime.value=f.mod==='Vibrato'?.004:.014;lfo.frequency.value=f.mod==='Vibrato'?4.8:1.1;lg.gain.value=(f.mod==='Vibrato'?.0025:.006)*I;lfo.connect(lg).connect(del.delayTime);cur.connect(dry).connect(sum);cur.connect(del).connect(wg).connect(sum);lfo.start();S.fxLfos.push(lfo);S.fxNodes.push(dry,del,wg,sum,lg);cur=sum}else if(f.mod==='Tremolo'){const g=ctx.createGain(),l=ctx.createOscillator(),lg=ctx.createGain();g.gain.value=1-I*.35;l.frequency.value=3.2+I*4;lg.gain.value=I*.34;l.connect(lg).connect(g.gain);cur.connect(g);l.start();S.fxLfos.push(l);S.fxNodes.push(g,lg);cur=g}else if(f.mod==='Phaser'){const sum=ctx.createGain();let chain=cur;for(let i=0;i<4;i++){const a=ctx.createBiquadFilter();a.type='allpass';a.frequency.value=550+i*420;a.Q.value=1.1+I*4;chain.connect(a);chain=a;S.fxNodes.push(a)}const dry=ctx.createGain(),wg=ctx.createGain();dry.gain.value=.64;wg.gain.value=.58;cur.connect(dry).connect(sum);chain.connect(wg).connect(sum);S.fxNodes.push(sum,dry,wg);cur=sum}else if(f.mod==='Auto Wah'){const wah=ctx.createBiquadFilter(),l=ctx.createOscillator(),lg=ctx.createGain();wah.type='bandpass';wah.frequency.value=700+I*600;wah.Q.value=2.5+I*5;l.frequency.value=1.2+I*2.6;lg.gain.value=500+I*1600;l.connect(lg).connect(wah.frequency);cur.connect(wah);l.start();S.fxLfos.push(l);S.fxNodes.push(wah,lg);cur=wah}
 const dd=ctx.createGain(),dw=ctx.createGain(),delay=ctx.createDelay(1.2),fb=ctx.createGain(),ds=ctx.createGain();dd.gain.value=1;dw.gain.value=f.delay==='Off'?0:Math.min(.72,W*.85+.08);delay.delayTime.value=f.delay==='Slap'?.09:f.delay==='Tape'?.29:f.delay==='Stereo'?.38:f.delay==='Ping Pong'?.46:.01;fb.gain.value=f.delay==='Off'?0:Math.min(.68,.18+I*.45);cur.connect(dd).connect(ds);cur.connect(delay);delay.connect(fb).connect(delay);let dout=delay;if((f.delay==='Stereo'||f.delay==='Ping Pong')&&ctx.createStereoPanner){const p=ctx.createStereoPanner();p.pan.value=f.delay==='Ping Pong'?.72:.38;delay.connect(p);dout=p;S.fxNodes.push(p)}dout.connect(dw).connect(ds);S.fxNodes.push(dd,dw,delay,fb,ds);cur=ds;
 const rd=ctx.createGain(),rw=ctx.createGain(),conv=ctx.createConvolver(),rs=ctx.createGain(),sec=f.space==='Room'?.7:f.space==='Plate'?1.3:f.space==='Hall'?2.4:f.space==='Cathedral'?4.2:.2,dec=f.space==='Cathedral'?3.2:f.space==='Hall'?2.8:2.2;conv.buffer=impulse(sec,dec);rd.gain.value=1;rw.gain.value=f.space==='Off'?0:Math.min(.78,W);cur.connect(rd).connect(rs);cur.connect(conv).connect(rw).connect(rs);S.fxNodes.push(rd,rw,conv,rs);cur=rs;
@@ -100,10 +100,11 @@ async function sampleVoice(midi,name,outNode=null){
   if(+z.loopStart>=0&&+z.loopEnd>+z.loopStart){
     src.loop=true;src.loopStart=z.loopStart/(z.sampleRate||b.sampleRate);src.loopEnd=z.loopEnd/(z.sampleRate||b.sampleRate);
   }
+  const samplePeak=.88*Math.max(.05,Math.min(1.2,vel*1.15));
   g.gain.setValueAtTime(.0001,now);
-  g.gain.exponentialRampToValueAtTime(.88,now+.008);
+  g.gain.exponentialRampToValueAtTime(Math.max(.001,samplePeak),now+.008);
   src.connect(g).connect(targetOut);
-  const v={midi,currentMidi:midi,stopped:false,apply(gl=.02,vib=0){
+  const v={midi,currentMidi:midi,velocity:vel,stopped:false,apply(gl=.02,vib=0){
     if(v.stopped)return;const r=Math.pow(2,(pitch(v,vib)-base)/12),t=ctx.currentTime;
     try{src.playbackRate.cancelScheduledValues(t);src.playbackRate.setTargetAtTime(r,t,Math.max(.002,gl/3))}catch{}
   },setMidi(n,gl){v.currentMidi=n;v.apply(gl)},stop(){
@@ -112,7 +113,7 @@ async function sampleVoice(midi,name,outNode=null){
   }};
   v.apply(0);src.start(now,Math.max(0,+z.delay||0));return v;
 }
-function synthVoice(midi,name,outNode=null){
+function synthVoice(midi,name,outNode=null,vel=0.8){
   const ac=outNode?.context||ctx;
   const targetOut=(outNode&&outNode.context===ac)?outNode:dest();
   const p=SOUND_PRESETS[name]||SOUND_PRESETS['Glass Lead']||SOUND_PRESETS['Studio Grand'];
@@ -127,7 +128,7 @@ function synthVoice(midi,name,outNode=null){
     f.frequency.setValueAtTime(Math.min(16000,baseCut*envMul),now);
     f.frequency.exponentialRampToValueAtTime(Math.max(80,baseCut),now+Math.max(.04,(p.decay||.2)*.75));
   }
-  const peak=(p.gain||.6)*.93;
+  const peak=(p.gain||.6)*.93*Math.max(.05,Math.min(1.2,vel*1.15));
   g.gain.setValueAtTime(.0001,now);
   g.gain.exponentialRampToValueAtTime(Math.max(.001,peak),now+Math.max(.002,p.attack||.01));
   g.gain.exponentialRampToValueAtTime(Math.max(.001,peak*(p.sustain??.72)),now+Math.max(.05,(p.attack||.01)+(p.decay||.12)));
@@ -140,7 +141,7 @@ function synthVoice(midi,name,outNode=null){
     og.gain.value=lev;
     o.connect(og).connect(f);o.start();return{o,semi,cents};
   });
-  const v={midi,currentMidi:midi,stopped:false,apply(gl=.02,vib=0){
+  const v={midi,currentMidi:midi,velocity:vel,stopped:false,apply(gl=.02,vib=0){
     if(v.stopped)return;const t=ac.currentTime,q=pitch(v,vib);
     for(const x of os){try{x.o.frequency.cancelScheduledValues(t);x.o.frequency.setTargetAtTime(midiToFreq(q+x.semi),t,Math.max(.002,gl/3))}catch{}}
   },setMidi(n,gl){v.currentMidi=n;v.apply(gl)},stop(){
@@ -149,26 +150,28 @@ function synthVoice(midi,name,outNode=null){
   }};
   v.apply(0);return v;
 }
-async function makeVoice(m,outNode=null){
+async function makeVoice(m,outNode=null,vel=0.8){
   const name=V38.state.voice;
   if(V38.SAMPLE_VOICES[name]){
     const spec=V38.SAMPLE_VOICES[name];
     const ready=window[spec.variable]&&zoneFor(window[spec.variable],m)&&S.decodedBuffers.has(zoneFor(window[spec.variable],m));
     if(ready){
-      const voice=await sampleVoice(m,name,outNode);
+      const voice=await sampleVoice(m,name,outNode,vel);
       if(voice)return voice;
     }
     // Zero-dead-air immediate compatible fallback while preloading in background
     preloadVoice(name,m-12,m+12);
-    return synthVoice(m,'Glass Lead',outNode);
+    return synthVoice(m,'Glass Lead',outNode,vel);
   }
-  return synthVoice(m,name,outNode);
+  return synthVoice(m,name,outNode,vel);
 }
 function duck(){if(!ctx)return;const on=S.leadPointers.size||S.leadPending.size||(S.leadMidiVoices?.size||0)||(S.leadMidiPending?.size||0);try{if(L.playbackBus?.gain){L.playbackBus.gain.cancelScheduledValues(ctx.currentTime);L.playbackBus.gain.setTargetAtTime(on?.90:1,ctx.currentTime,.025)}if(L.beatBus?.gain){L.beatBus.gain.cancelScheduledValues(ctx.currentTime);L.beatBus.gain.setTargetAtTime((V37.mix?.beats??.86)*(on?.88:1),ctx.currentTime,.025)}}catch{}}
 function stopLead(){for(const h of S.leadPointers.values()){h.voice?.stop?.();h.key?.classList.remove('active')}S.leadPointers.clear();for(const h of (S.leadMidiVoices?.values()||[])){h.voice?.stop?.();h.key?.classList.remove('active')}S.leadMidiVoices?.clear();for(const p of S.leadPending.values())p.cancelled=true;S.leadPending.clear();for(const p of (S.leadMidiPending?.values()||[]))p.cancelled=true;S.leadMidiPending?.clear();S.pitchBend=0;duck();ui()}
-async function startMidiLead(midi,vel=0.8){await ensureAudio();primeAudio();duck();const existing=S.leadMidiVoices.get(midi);if(existing){existing.voice?.stop?.();existing.key?.classList.remove('active');S.leadMidiVoices.delete(midi)}const key=document.querySelector(`#v38Keyboard .v38-key[data-midi="${midi}"]`);if(key)key.classList.add('active');const pending={cancelled:false,key,midi,vel};S.leadMidiPending.set(midi,pending);const voice=await makeVoice(midi);S.leadMidiPending.delete(midi);if(pending.cancelled||!voice){voice?.stop?.();if(key)key.classList.remove('active');duck();return null}const entry={voice,key,midi,vel};S.leadMidiVoices.set(midi,entry);duck();return entry}
-function stopMidiLead(midi){const pending=S.leadMidiPending?.get(midi);if(pending){pending.cancelled=true;pending.key?.classList.remove('active');S.leadMidiPending.delete(midi)}const existing=S.leadMidiVoices.get(midi);if(!existing)return;existing.voice?.stop?.();existing.key?.classList.remove('active');S.leadMidiVoices.delete(midi);duck()}
-async function down(e){const key=e.target.closest?.('#v38Keyboard .v38-key');if(!key)return;e.preventDefault();e.stopImmediatePropagation();const id=e.pointerId,midi=+key.dataset.midi,p={key,cancelled:false};S.leadPending.set(id,p);key.classList.add('active');duck();await ensureAudio();if(p.cancelled)return;primeAudio();const voice=await makeVoice(midi);S.leadPending.delete(id);if(p.cancelled||!voice||!key.isConnected){voice?.stop?.();key.classList.remove('active');duck();return}S.leadPointers.set(id,{voice,key,midi});try{key.setPointerCapture(id)}catch{}duck()}
+function midiKeyId(midi,ch=1){return `${ch||1}:${midi}`}
+function isLeadMidiActive(midi){for(const p of S.leadPointers.values())if(p.midi===midi)return true;for(const p of S.leadPending.values())if(p.midi===midi&&!p.cancelled)return true;for(const v of (S.leadMidiVoices?.values()||[]))if(v.midi===midi&&!v.voice?.stopped)return true;for(const p of (S.leadMidiPending?.values()||[]))if(p.midi===midi&&!p.cancelled)return true;return false}
+async function startMidiLead(midi,vel=0.8,ch=1){await ensureAudio();primeAudio();duck();const kId=midiKeyId(midi,ch);const existing=S.leadMidiVoices.get(kId);if(existing){existing.voice?.stop?.();S.leadMidiVoices.delete(kId)}const key=document.querySelector(`#v38Keyboard .v38-key[data-midi="${midi}"]`);if(key)key.classList.add('active');const pending={cancelled:false,key,midi,vel,ch};S.leadMidiPending.set(kId,pending);const voice=await makeVoice(midi,null,vel);S.leadMidiPending.delete(kId);if(pending.cancelled||!voice){voice?.stop?.();if(key&&!isLeadMidiActive(midi))key.classList.remove('active');duck();return null}const entry={voice,key,midi,vel,ch};S.leadMidiVoices.set(kId,entry);duck();return entry}
+function stopMidiLead(midi,ch=null){if(ch!=null){const kId=midiKeyId(midi,ch);const pending=S.leadMidiPending?.get(kId);if(pending){pending.cancelled=true;S.leadMidiPending.delete(kId)}const existing=S.leadMidiVoices.get(kId);if(existing){existing.voice?.stop?.();S.leadMidiVoices.delete(kId)}}else{for(const [k,p] of (S.leadMidiPending?.entries()||[]))if(p.midi===midi){p.cancelled=true;S.leadMidiPending.delete(k)}for(const [k,e] of (S.leadMidiVoices?.entries()||[]))if(e.midi===midi){e.voice?.stop?.();S.leadMidiVoices.delete(k)}}const key=document.querySelector(`#v38Keyboard .v38-key[data-midi="${midi}"]`);if(key&&!isLeadMidiActive(midi))key.classList.remove('active');duck()}
+async function down(e){const key=e.target.closest?.('#v38Keyboard .v38-key');if(!key)return;e.preventDefault();e.stopImmediatePropagation();const id=e.pointerId,midi=+key.dataset.midi,p={key,cancelled:false};S.leadPending.set(id,p);key.classList.add('active');duck();await ensureAudio();if(p.cancelled)return;primeAudio();const voice=await makeVoice(midi,null,0.85);S.leadPending.delete(id);if(p.cancelled||!voice||!key.isConnected){voice?.stop?.();if(!isLeadMidiActive(midi))key.classList.remove('active');duck();return}S.leadPointers.set(id,{voice,key,midi});try{key.setPointerCapture(id)}catch{}duck()}
 const at=(x,y)=>document.elementsFromPoint?.(x,y)?.find(e=>e.classList?.contains('v38-key'))||null;
 function move(e){const h=S.leadPointers.get(e.pointerId);if(!h||!S.slide)return;e.preventDefault();e.stopImmediatePropagation();const k=at(e.clientX,e.clientY);if(!k||k===h.key)return;const m=+k.dataset.midi;if(!Number.isFinite(m)||m===h.midi)return;h.key.classList.remove('active');k.classList.add('active');h.key=k;h.midi=m;h.voice.setMidi?.(m,S.glideMs/1000)}
 function up(e){const p=S.leadPending.get(e.pointerId);if(p){e.preventDefault();e.stopImmediatePropagation();p.cancelled=true;S.leadPending.delete(e.pointerId);p.key?.classList.remove('active')}const h=S.leadPointers.get(e.pointerId);if(!h){duck();return}e.preventDefault();e.stopImmediatePropagation();h.voice?.stop?.();h.key?.classList.remove('active');S.leadPointers.delete(e.pointerId);duck()}

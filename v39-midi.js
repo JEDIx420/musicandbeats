@@ -331,9 +331,9 @@
 
       // Main Keyboard interaction
       if (isNoteOn) {
-        handleKeyboardDown(data1, data2 / 127);
+        handleKeyboardDown(data1, data2 / 127, ch);
       } else {
-        handleKeyboardUp(data1);
+        handleKeyboardUp(data1, ch);
       }
     }
   }
@@ -372,34 +372,35 @@
     releasePadPointer(padIdx, pointerId);
   }
 
-  function handleKeyboardDown(midi, velocity) {
+  function handleKeyboardDown(midi, velocity, ch = 1) {
     const target = config.keyboardTarget || 'lead';
     if (target === 'lead') {
-      window.MB_V39?.startMidiLead?.(midi, velocity);
+      window.MB_V39?.startMidiLead?.(midi, velocity, ch);
     } else if (target === 'bass') {
       if (typeof ensureAudio === 'function') ensureAudio();
       const preset = window.MB_V34_LOOPER?.tracks?.bass?.sound || 'Sub Bass';
       const targetBus = window.MB_V34_LOOPER?.playbackBus || synthBus || ctx?.destination;
       const voice = window.startVoice?.(midi, preset, velocity * 0.9, targetBus);
-      if (voice) state.activeNotes.set(midi, voice);
+      if (voice) state.activeNotes.set(`${ch}:${midi}`, voice);
     } else if (target === 'keys') {
       if (typeof ensureAudio === 'function') ensureAudio();
       const preset = window.MB_V34_LOOPER?.tracks?.keys?.sound || 'Studio Grand';
       const targetBus = window.MB_V34_LOOPER?.playbackBus || synthBus || ctx?.destination;
       const voice = window.startVoice?.(midi, preset, velocity * 0.85, targetBus);
-      if (voice) state.activeNotes.set(midi, voice);
+      if (voice) state.activeNotes.set(`${ch}:${midi}`, voice);
     }
   }
 
-  function handleKeyboardUp(midi) {
+  function handleKeyboardUp(midi, ch = 1) {
     const target = config.keyboardTarget || 'lead';
     if (target === 'lead') {
-      window.MB_V39?.stopMidiLead?.(midi);
+      window.MB_V39?.stopMidiLead?.(midi, ch);
     } else {
-      const voice = state.activeNotes.get(midi);
+      const kId = `${ch}:${midi}`;
+      const voice = state.activeNotes.get(kId);
       if (voice) {
         try { voice.stop?.(); } catch {}
-        state.activeNotes.delete(midi);
+        state.activeNotes.delete(kId);
       }
     }
   }
