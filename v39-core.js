@@ -10,8 +10,50 @@ const chordTypes={'Major':[0,4,7],'Minor':[0,3,7],'Diminished':[0,3,6],'Augmente
 const suffix={Major:'',Minor:'m',Diminished:'°',Augmented:'+',Sus2:'sus2',Sus4:'sus4','Power 5':'5','6':'6','m6':'m6','7':'7',maj7:'maj7',m7:'m7',dim7:'dim7',m7b5:'m7♭5',add9:'add9',madd9:'madd9','9':'9',maj9:'maj9',m9:'m9','11':'11',m11:'m11','13':'13',m13:'m13','6/9':'6/9','7sus4':'7sus4',mMaj7:'mMaj7','maj7#11':'maj7♯11','7b9':'7♭9','7#9':'7♯9','7b5':'7♭5','7#5':'7♯5',add11:'add11',madd11:'madd11',Custom:' custom'};
 const S={transpose:{keys:0,bass:0},chords:[],chordsCustomized:false,chordKey:tracks.keys.key,editorSlot:0,editorOpen:false,slide:true,glideMs:85,pitchRange:2,pitchBend:0,mod:0,leadVoice:'Grand Piano',keyPointers:new Map(),keyLatch:null,heldShortcuts:new Map(),heldMidiPads:new Map(),bassPointers:new Map(),bassLatch:null,heldBassShortcuts:new Map(),heldMidiBassPads:new Map()};
 
-function getUICollapse(key){try{const v=JSON.parse(localStorage.getItem('musicandbeats:ui:controls')||'{}');return !!v[key]}catch{return false}}
-function setUICollapse(key,val){try{const v=JSON.parse(localStorage.getItem('musicandbeats:ui:controls')||'{}');v[key]=!!val;localStorage.setItem('musicandbeats:ui:controls',JSON.stringify(v))}catch{}}
+const COLLAPSE_KEY='musicandbeats:ui:controls';
+const collapseState={keys:false,bass:false,lead:false};
+function loadCollapseState(){
+  try{
+    const v=JSON.parse(localStorage.getItem(COLLAPSE_KEY)||'{}');
+    if(typeof v.keysControls==='boolean')collapseState.keys=v.keysControls;
+    if(typeof v.bassControls==='boolean')collapseState.bass=v.bassControls;
+    if(typeof v.leadControls==='boolean')collapseState.lead=v.leadControls;
+  }catch{}
+}
+loadCollapseState();
+
+function saveCollapseState(){
+  try{
+    const v=JSON.parse(localStorage.getItem(COLLAPSE_KEY)||'{}');
+    v.keysControls=collapseState.keys;
+    v.bassControls=collapseState.bass;
+    v.leadControls=collapseState.lead;
+    localStorage.setItem(COLLAPSE_KEY,JSON.stringify(v));
+  }catch{}
+}
+
+function getUICollapse(key){
+  if(key==='keysControls'||key==='keys')return collapseState.keys;
+  if(key==='bassControls'||key==='bass')return collapseState.bass;
+  if(key==='leadControls'||key==='lead')return collapseState.lead;
+  try{const v=JSON.parse(localStorage.getItem(COLLAPSE_KEY)||'{}');return !!v[key]}catch{return false}
+}
+
+function setUICollapse(key,val){
+  const b=!!val;
+  if(key==='keysControls'||key==='keys')collapseState.keys=b;
+  else if(key==='bassControls'||key==='bass')collapseState.bass=b;
+  else if(key==='leadControls'||key==='lead')collapseState.lead=b;
+  else{
+    try{
+      const v=JSON.parse(localStorage.getItem(COLLAPSE_KEY)||'{}');
+      v[key]=b;
+      localStorage.setItem(COLLAPSE_KEY,JSON.stringify(v));
+    }catch{}
+    return;
+  }
+  saveCollapseState();
+}
 
 function defaults(key){try{return chordData(key).slice(0,7).map(c=>({root:c.name,type:c.quality==='minor'?'Minor':c.quality==='dim'?'Diminished':'Major',custom:''}))}catch{}const i=Math.max(0,NOTES.indexOf(key)),steps=[0,2,4,5,7,9,11],types=['Major','Minor','Minor','Major','Major','Minor','Diminished'];return steps.map((x,n)=>({root:NOTES[(i+x)%12],type:types[n],custom:''}))}
 try{const x=JSON.parse(localStorage.getItem(SETTINGS)||'null');if(x){if(x.transpose)Object.assign(S.transpose,x.transpose);if(Array.isArray(x.chords)&&x.chords.length===7)S.chords=x.chords;S.chordsCustomized=!!x.chordsCustomized;S.chordKey=x.chordKey||S.chordKey;S.slide=x.slide!==false;S.glideMs=clamp(+x.glideMs||85,0,300);S.pitchRange=[2,7,12].includes(+x.pitchRange)?+x.pitchRange:2;S.mod=clamp(+x.mod||0,0,1);S.leadVoice=x.leadVoice||S.leadVoice}}catch{}
@@ -285,12 +327,12 @@ const tSelect=lane=>`<label class="v39-transpose">Transpose<select id="v39Transp
 function bassPads(){document.querySelectorAll('#v34BassPads .v34-bass-pad').forEach((b,i)=>{if(!b.dataset.v39BaseMidi)b.dataset.v39BaseMidi=b.dataset.midi;const m=clamp(+b.dataset.v39BaseMidi+S.transpose.bass,0,127);b.dataset.midi=m;const q=b.querySelector('strong'),txt=midiLabel(m);if(q&&q.textContent!==txt)q.textContent=txt;let cap=b.querySelector('.v39-keycap');if(!cap){cap=document.createElement('span');cap.className='v39-keycap';cap.textContent=String(i+1);b.appendChild(cap)}})}
 function bass(){
   const w=document.querySelector('#v34Workspace');if(!w)return;
-  decorateCollapseBass(w);
   const voiceSel=w.querySelector('#v34BassSound');
   if(voiceSel)enhanceBassVoiceSelector(voiceSel);
   const g=w.querySelector('.v34-control-grid');if(!g)return;
   if(!document.querySelector('#v39TransposeBass')){const d=document.createElement('div');d.innerHTML=tSelect('bass');const x=d.firstElementChild;g.insertBefore(x,g.lastElementChild);x.querySelector('select').onchange=e=>setTranspose('bass',e.target.value)}
   bassPads();
+  applyCollapse('bass');
 }
 function chordPads(){
   [...document.querySelectorAll('#v34ChordPads .v34-performance-pad')].forEach((b,i)=>{
@@ -357,39 +399,105 @@ function bindEditor(){
   p.querySelector('#v39ResetAll')?.addEventListener('click',()=>{releaseKeys();S.chords=defaults(tracks.keys.key);S.chordsCustomized=false;S.chordKey=tracks.keys.key;persist();keys(true)});
 }
 
+function applyCollapse(surface){
+  const w=document.querySelector('#v34Workspace');if(!w)return;
+  const activeSurface=surface||(document.querySelector('#v38Keyboard')||document.querySelector('#v37LeadTrack.active')?'lead':w.querySelector('#v34BassPads')?'bass':'keys');
+
+  if(activeSurface==='keys'||activeSurface==='all'){
+    const isCollapsed=collapseState.keys;
+    let btn=w.querySelector('#v39KeysCollapseBtn');
+    if(!btn){
+      const head=w.querySelector('.v34-work-head');
+      if(head&&w.querySelector('#v34ChordPads')){
+        btn=document.createElement('button');btn.id='v39KeysCollapseBtn';btn.type='button';btn.className='v39-focus-toggle';head.appendChild(btn);
+      }
+    }
+    if(btn){
+      btn.setAttribute('aria-expanded',String(!isCollapsed));
+      btn.setAttribute('aria-label',isCollapsed?'Show controls':'Hide controls');
+      btn.innerHTML=isCollapsed?'<span>Show controls</span> <i>⌄</i>':'<span>Hide controls</span> <i>⌃</i>';
+    }
+    const grid=w.querySelector('.v34-control-grid');
+    if(grid&&w.querySelector('#v34ChordPads')){
+      grid.querySelectorAll('label:not(.v36-latch-control),button#v34KeysRecord').forEach(el=>el.classList.toggle('v39-hidden',isCollapsed));
+    }
+    const ed=w.querySelector('#v39ChordEditor');
+    if(ed)ed.classList.toggle('v39-hidden',isCollapsed);
+  }
+
+  if(activeSurface==='bass'||activeSurface==='all'){
+    const isCollapsed=collapseState.bass;
+    let btn=w.querySelector('#v39BassCollapseBtn');
+    if(!btn){
+      const head=w.querySelector('.v34-work-head');
+      if(head&&w.querySelector('#v34BassPads')){
+        btn=document.createElement('button');btn.id='v39BassCollapseBtn';btn.type='button';btn.className='v39-focus-toggle';head.appendChild(btn);
+      }
+    }
+    if(btn){
+      btn.setAttribute('aria-expanded',String(!isCollapsed));
+      btn.setAttribute('aria-label',isCollapsed?'Show controls':'Hide controls');
+      btn.innerHTML=isCollapsed?'<span>Show controls</span> <i>⌄</i>':'<span>Hide controls</span> <i>⌃</i>';
+    }
+    const grid=w.querySelector('.v34-control-grid');
+    if(grid&&w.querySelector('#v34BassPads')){
+      grid.querySelectorAll('label:not(.v36-latch-control),button#v34BassRecord').forEach(el=>el.classList.toggle('v39-hidden',isCollapsed));
+    }
+  }
+
+  if(activeSurface==='lead'||activeSurface==='all'){
+    const isCollapsed=collapseState.lead;
+    let btn=w.querySelector('#v39LeadCollapseBtn');
+    if(!btn){
+      const head=w.querySelector('.v34-work-head');
+      if(head&&(w.querySelector('#v38Keyboard')||w.querySelector('.v38-toolbar'))){
+        btn=document.createElement('button');btn.id='v39LeadCollapseBtn';btn.type='button';btn.className='v39-focus-toggle';head.appendChild(btn);
+      }
+    }
+    if(btn){
+      btn.setAttribute('aria-expanded',String(!isCollapsed));
+      btn.setAttribute('aria-label',isCollapsed?'Show controls':'Hide controls');
+      btn.innerHTML=isCollapsed?'<span>Show controls</span> <i>⌄</i>':'<span>Hide controls</span> <i>⌃</i>';
+    }
+    const toolbar=w.querySelector('.v38-toolbar');
+    const fx=w.querySelector('.v38-fx');
+    const status=w.querySelector('#v38SampleStatus');
+    if(toolbar)toolbar.classList.toggle('v39-hidden',isCollapsed);
+    if(fx)fx.classList.toggle('v39-hidden',isCollapsed);
+    if(status)status.classList.toggle('v39-hidden',isCollapsed);
+  }
+}
+
+function toggleCollapse(surface){
+  if(surface==='keys'){
+    collapseState.keys=!collapseState.keys;
+  }else if(surface==='bass'){
+    collapseState.bass=!collapseState.bass;
+  }else if(surface==='lead'){
+    collapseState.lead=!collapseState.lead;
+  }
+  saveCollapseState();
+  applyCollapse(surface);
+}
+
 function decorateCollapseKeys(w){
-  let btn=w.querySelector('#v39KeysCollapseBtn');
-  if(!btn){
-    const head=w.querySelector('.v34-work-head');if(!head)return;
-    btn=document.createElement('button');btn.id='v39KeysCollapseBtn';btn.type='button';btn.className='v39-focus-toggle';head.appendChild(btn);
-  }
-  const isCollapsed=getUICollapse('keysControls');
-  btn.setAttribute('aria-expanded',String(!isCollapsed));
-  btn.innerHTML=isCollapsed?'<span>Show controls</span> <i>⌄</i>':'<span>Hide controls</span> <i>⌃</i>';
-  btn.onclick=e=>{e.preventDefault();const next=!getUICollapse('keysControls');setUICollapse('keysControls',next);decorateCollapseKeys(w)};
-  const grid=w.querySelector('.v34-control-grid');
-  const ed=w.querySelector('#v39ChordEditor');
-  if(grid){
-    grid.querySelectorAll('label:not(.v36-latch-control),button#v34KeysRecord').forEach(el=>el.classList.toggle('v39-hidden',isCollapsed));
-  }
-  if(ed)ed.classList.toggle('v39-hidden',isCollapsed);
+  applyCollapse('keys');
 }
 
 function decorateCollapseBass(w){
-  let btn=w.querySelector('#v39BassCollapseBtn');
-  if(!btn){
-    const head=w.querySelector('.v34-work-head');if(!head)return;
-    btn=document.createElement('button');btn.id='v39BassCollapseBtn';btn.type='button';btn.className='v39-focus-toggle';head.appendChild(btn);
-  }
-  const isCollapsed=getUICollapse('bassControls');
-  btn.setAttribute('aria-expanded',String(!isCollapsed));
-  btn.innerHTML=isCollapsed?'<span>Show controls</span> <i>⌄</i>':'<span>Hide controls</span> <i>⌃</i>';
-  btn.onclick=e=>{e.preventDefault();const next=!getUICollapse('bassControls');setUICollapse('bassControls',next);decorateCollapseBass(w)};
-  const grid=w.querySelector('.v34-control-grid');
-  if(grid){
-    grid.querySelectorAll('label:not(.v36-latch-control),button#v34BassRecord').forEach(el=>el.classList.toggle('v39-hidden',isCollapsed));
-  }
+  applyCollapse('bass');
 }
+
+document.addEventListener('click',e=>{
+  const btn=e.target.closest?.('#v39KeysCollapseBtn, #v39BassCollapseBtn, #v39LeadCollapseBtn');
+  if(!btn)return;
+  e.preventDefault();
+  e.stopPropagation();
+  e.stopImmediatePropagation();
+  if(btn.id==='v39KeysCollapseBtn')toggleCollapse('keys');
+  else if(btn.id==='v39BassCollapseBtn')toggleCollapse('bass');
+  else if(btn.id==='v39LeadCollapseBtn')toggleCollapse('lead');
+},true);
 
 function enhanceKeysVoiceSelector(voiceSel){
   if(!voiceSel||voiceSel.dataset.v39Grouped==='1')return;
@@ -432,7 +540,6 @@ function enhanceBassVoiceSelector(voiceSel){
 
 function keys(force=false){
   const w=document.querySelector('#v34Workspace');if(!w)return;
-  decorateCollapseKeys(w);
   const voiceSel=w.querySelector('#v34KeysSound');
   if(voiceSel)enhanceKeysVoiceSelector(voiceSel);
   const g=w.querySelector('.v34-control-grid');if(!g)return;
@@ -441,9 +548,10 @@ function keys(force=false){
   chordPads();
   if(force)document.querySelector('#v39ChordEditor')?.remove();
   if(!document.querySelector('#v39ChordEditor')){document.querySelector('#v34ChordPads')?.insertAdjacentHTML('afterend',editorHTML());bindEditor()}
+  applyCollapse('keys');
 }
 
-function decorate(){if(document.querySelector('#v38Keyboard'))return;if(L.activeLane==='keys')keys();else if(L.activeLane==='bass')bass()}
+function decorate(){if(document.querySelector('#v38Keyboard')){applyCollapse('lead');return}if(L.activeLane==='keys')keys();else if(L.activeLane==='bass')bass()}
 const baseSave=V.saveProject.bind(V),baseLoad=V.loadProject.bind(V),baseNew=V.newProject.bind(V);
 V.saveProject=function(...a){const item=baseSave(...a);try{const list=JSON.parse(localStorage.getItem(PROJECTS)||'[]'),x=list.find(p=>p.id===item?.id);if(x?.data){x.data.v39={transpose:clone(S.transpose),chords:clone(S.chords),chordsCustomized:S.chordsCustomized,chordKey:S.chordKey,slide:S.slide,glideMs:S.glideMs,pitchRange:S.pitchRange,mod:S.mod,leadVoice:V38.state.voice};localStorage.setItem(PROJECTS,JSON.stringify(list))}}catch{}return item};
 V.loadProject=function(id){let x=null;try{x=JSON.parse(localStorage.getItem(PROJECTS)||'[]').find(p=>p.id===id)?.data?.v39||null}catch{};releaseKeys();window.MB_V39?.stopLead?.();const out=baseLoad(id);if(x){S.transpose={keys:clamp(+x.transpose?.keys||0,-12,12),bass:clamp(+x.transpose?.bass||0,-12,12)};S.chords=Array.isArray(x.chords)&&x.chords.length===7?x.chords:defaults(tracks.keys.key);S.chordsCustomized=!!x.chordsCustomized;S.chordKey=x.chordKey||tracks.keys.key;S.slide=x.slide!==false;S.glideMs=clamp(+x.glideMs||85,0,300);S.pitchRange=[2,7,12].includes(+x.pitchRange)?+x.pitchRange:2;S.mod=clamp(+x.mod||0,0,1);S.leadVoice=x.leadVoice||'Grand Piano'}else{S.transpose={keys:0,bass:0};S.chords=defaults(tracks.keys.key);S.chordsCustomized=false;S.chordKey=tracks.keys.key;S.leadVoice='Grand Piano'}V38.state.voice=hidden.has(S.leadVoice)?'Grand Piano':S.leadVoice;persist();setTimeout(()=>window.MB_V39?.decorate?.(),0);return out};
@@ -541,5 +649,5 @@ window.auditInstrumentPatches = async function(){
   return res;
 };
 
-window.MB_V39={version:'v39',V,api,V38,state:S,SAMPLES,voiceGroups,hidden,chordTypes,clamp,persist,releaseKeys,releaseBass,setTranspose,decorateCore:decorate,monitor,carryForwardRecord,onFinishRecording,triggerPadDown,triggerPadUp,startChordOnPad,startBassOnPad,stopKey,stopBass,getUICollapse,setUICollapse,auditInstrumentPatches:window.auditInstrumentPatches};persist();
+window.MB_V39={version:'v39',V,api,V38,state:S,SAMPLES,voiceGroups,hidden,chordTypes,clamp,persist,releaseKeys,releaseBass,setTranspose,decorateCore:decorate,monitor,carryForwardRecord,onFinishRecording,triggerPadDown,triggerPadUp,startChordOnPad,startBassOnPad,stopKey,stopBass,collapseState,applyCollapse,toggleCollapse,getUICollapse,setUICollapse,auditInstrumentPatches:window.auditInstrumentPatches};persist();
 })();
