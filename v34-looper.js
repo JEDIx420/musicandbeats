@@ -18,8 +18,10 @@
     bpm:100,bars:4,running:false,timer:null,nextStepTime:0,absoluteStep:0,
     pendingLane:null,pendingStartAbs:0,recordingLane:null,recordStartAbs:0,
     recordStartTime:0,recordEndAbs:0,recordStartStep:0,activeLane:'beats',
-    beatStyle:'Worship',energy:3,beatPattern:null,liveHolds:new Map(),countInSteps:0,playbackBus:null,beatBus:null,starting:false,captureGrace:null
+    beatStyle:'Worship',energy:3,beatPattern:null,liveHolds:new Map(),countInSteps:0,playbackBus:null,beatBus:null,starting:false,captureGrace:null,
+    recordSessionId:0
   };
+  const activeScheduledVoices={keys:new Set(),bass:new Set()};
 
   Object.assign(SOUND_PRESETS,{
     'Harmonium':{oscs:[['square',0,.31],['sine',12,.26],['square',12,.08],['sine',19,.08]],attack:.025,decay:.12,sustain:.84,release:.24,filter:4300,q:.8,gain:.58},
@@ -137,6 +139,12 @@
     if(state.timer)clearInterval(state.timer);state.timer=null;state.running=false;state.countInSteps=0;
     if(!keepPending)state.pendingLane=null;
     if(state.recordingLane)finishRecording(true);
+    for(const l of ['keys','bass']){
+      if(activeScheduledVoices[l]){
+        for(const v of activeScheduledVoices[l]){try{v.stop?.()}catch{}}
+        activeScheduledVoices[l].clear();
+      }
+    }
     try{if(state.playbackBus){state.playbackBus.gain.setValueAtTime(0,ctx.currentTime);state.playbackBus.disconnect()}}catch{}state.playbackBus=null;
     try{if(state.beatBus){state.beatBus.gain.setValueAtTime(0,ctx.currentTime);state.beatBus.disconnect()}}catch{}state.beatBus=null;
     state.absoluteStep=0;panic();renderTransport();updateClock(0,'Ready','Tap Play, or record a Keys/Bass loop.');
@@ -169,14 +177,14 @@
     if(!TRACKS.beats.muted&&state.beatPattern){const s=step%16;if(state.beatPattern.kick[s])kick(t,state.beatBus||drumBus);if(state.beatPattern.snare[s])snare(t,state.beatBus||drumBus);if(state.beatPattern.hat[s])hat(t,state.beatBus||drumBus)}
     ['keys','bass'].forEach(lane=>{
       if(TRACKS[lane].muted||state.recordingLane===lane)return;
-      TRACKS[lane].events.forEach(e=>{if(wrapStep(e.step)===step)v34ScheduleEvent(e,t)});
+      TRACKS[lane].events.forEach(e=>{if(wrapStep(e.step)===step)v34ScheduleEvent(e,t,lane)});
     });
   }
-  function v34ScheduleEvent(e,t){
+  function v34ScheduleEvent(e,t,lane=null){
     const dur=Math.max(stepSeconds(),(+e.durationSteps||1)*stepSeconds());
-    (e.midis||[]).forEach((m,i)=>v34ScheduleVoice(+m,e.preset||'Studio Grand',Math.max(.38,.76-i*.025),t,dur));
+    (e.midis||[]).forEach((m,i)=>v34ScheduleVoice(+m,e.preset||'Studio Grand',Math.max(.38,.76-i*.025),t,dur,lane));
   }
-  function v34ScheduleVoice(m,p,v,start,dur){
+  function v34ScheduleVoice(m,p,v,start,dur,lane=null){
     if(window.MB_V39?.sampleManager && window.MB_V38?.SAMPLE_VOICES?.[p]){
       const sm=window.MB_V39.sampleManager;
       const spec=window.MB_V38.SAMPLE_VOICES[p];
@@ -200,6 +208,20 @@
         try{src.playbackRate.setValueAtTime(r,start)}catch{}
         src.start(start,Math.max(0,+z.delay||0));
         src.stop(start+dur+.1);
+        const vObj={stop(){
+          try{
+            const now=ctx.currentTime;
+            g.gain.cancelScheduledValues(now);
+            g.gain.setValueAtTime(Math.max(.0001,g.gain.value),now);
+            g.gain.linearRampToValueAtTime(.0001,now+.02);
+            src.stop(now+.03);
+          }catch{}
+          if(lane&&activeScheduledVoices[lane])activeScheduledVoices[lane].delete(vObj);
+        }};
+        if(lane&&activeScheduledVoices[lane]){
+          activeScheduledVoices[lane].add(vObj);
+          setTimeout(()=>{if(lane&&activeScheduledVoices[lane])activeScheduledVoices[lane].delete(vObj)},Math.max(0,(start+dur+.15-ctx.currentTime)*1000));
+        }
         return;
       }
     }
@@ -218,13 +240,28 @@
     g.gain.setValueAtTime(.0001,start);g.gain.exponentialRampToValueAtTime(Math.max(.001,s.gain*v),attackEnd);g.gain.exponentialRampToValueAtTime(Math.max(.001,s.gain*s.sustain*v),decayEnd);
     g.gain.setValueAtTime(Math.max(.001,s.gain*s.sustain*v),releaseAt);g.gain.exponentialRampToValueAtTime(.0001,start+dur);
     f.connect(g).connect(targetBus);
-    s.oscs.forEach(def=>{
+    const os=s.oscs.map(def=>{
       const [type,semi,lev,cents=0]=def;
       const o=ctx.createOscillator(),og=ctx.createGain();o.type=type;
       o.frequency.setValueAtTime(midiToFreq(m+semi),start);
       if(cents)try{o.detune.setValueAtTime(cents,start)}catch{}
       og.gain.value=lev;o.connect(og).connect(f);o.start(start);o.stop(start+dur+.03);
+      return o;
     });
+    const vObj={stop(){
+      try{
+        const now=ctx.currentTime;
+        g.gain.cancelScheduledValues(now);
+        g.gain.setValueAtTime(Math.max(.0001,g.gain.value),now);
+        g.gain.linearRampToValueAtTime(.0001,now+.02);
+        os.forEach(o=>{try{o.stop(now+.03)}catch{}});
+      }catch{}
+      if(lane&&activeScheduledVoices[lane])activeScheduledVoices[lane].delete(vObj);
+    }};
+    if(lane&&activeScheduledVoices[lane]){
+      activeScheduledVoices[lane].add(vObj);
+      setTimeout(()=>{if(lane&&activeScheduledVoices[lane])activeScheduledVoices[lane].delete(vObj)},Math.max(0,(start+dur+.05-ctx.currentTime)*1000));
+    }
   }
 
   function armLane(lane){
@@ -253,11 +290,13 @@
   }
   function beginRecording(lane,abs,t){
     state.pendingLane=null;state.recordingLane=lane;state.recordStartAbs=abs;state.recordEndAbs=abs+totalSteps();state.recordStartTime=t;state.recordStartStep=abs%totalSteps();
+    state.recordSessionId=(state.recordSessionId||0)+1;
+    const sessId=state.recordSessionId;
     TRACKS[lane].events=[];persist();renderAll();updateRecordButtons();
     for(const h of state.liveHolds.values())if(h.lane===lane){
-      h.captured=false;h.startedAt=t;h.captureMeta={lane,startTime:t,startStep:0,boundary:t+totalSteps()*stepSeconds()};
+      h.captured=false;h.startedAt=t;h.captureMeta={lane,startTime:t,startStep:0,boundary:t+totalSteps()*stepSeconds(),sessionId:sessId};
     }
-    window.MB_V39?.carryForwardRecord?.(lane,t);
+    window.MB_V39?.carryForwardRecord?.(lane,t,sessId);
   }
   function updateRecordButtons(bar){
     const currentBar=bar||Math.floor((state.absoluteStep%totalSteps())/16)+1;
@@ -330,7 +369,8 @@
   function finishRecording(cancelled=false,endTime=null){
     const lane=state.recordingLane;if(!lane)return;
     const boundary=endTime??ctx?.currentTime??0;
-    const meta={lane,startTime:state.recordStartTime,startStep:state.recordStartStep,boundary};
+    const sessId=state.recordSessionId;
+    const meta={lane,startTime:state.recordStartTime,startStep:state.recordStartStep,boundary,sessionId:sessId};
     if(!cancelled&&ctx&&boundary>ctx.currentTime){state.captureGrace=meta;setTimeout(()=>{if(state.captureGrace===meta)state.captureGrace=null},Math.max(0,(boundary-ctx.currentTime)*1000)+24)}else state.captureGrace=null;
     for(const h of state.liveHolds.values())if(h.lane===lane){h.captureMeta=h.captureMeta||meta;captureHold(h,boundary,true)}
     window.MB_V39?.onFinishRecording?.(lane,boundary,cancelled);
@@ -340,12 +380,48 @@
     if(!cancelled)updateClock(1,`${titleLane(lane)} loop ready`,'Locked to the master grid');
   }
   function captureHold(h,endTime,forced=false){
-    const meta=h.captureMeta||(state.recordingLane===h.lane?{lane:h.lane,startTime:state.recordStartTime,startStep:state.recordStartStep,boundary:Infinity}:null);if(!meta||meta.lane!==h.lane)return;
+    const meta=h.captureMeta||(state.recordingLane===h.lane?{lane:h.lane,startTime:state.recordStartTime,startStep:state.recordStartStep,boundary:Infinity,sessionId:state.recordSessionId}:null);if(!meta||meta.lane!==h.lane)return;
+    if(meta.sessionId&&state.recordSessionId&&meta.sessionId!==state.recordSessionId)return;
     const cappedEnd=Math.min(endTime,meta.boundary??endTime),relStart=(h.startedAt-meta.startTime)/stepSeconds(),relEnd=(cappedEnd-meta.startTime)/stepSeconds();
     let a=Math.round(relStart),b=Math.round(relEnd);a=clamp(a,0,totalSteps()-1);b=Math.max(a+1,b);
     const step=wrapStep(meta.startStep+a),durationSteps=Math.max(1,Math.min(totalSteps(),b-a));
     TRACKS[h.lane].events.push({step,durationSteps,midis:h.midis,preset:h.preset});
     if(!forced)persist();
+  }
+
+  function clearLane(lane){
+    if(!['keys','bass'].includes(lane))return;
+    TRACKS[lane].events=[];
+    if(state.recordingLane===lane){
+      state.recordingLane=null;
+    }
+    if(state.pendingLane===lane){
+      state.pendingLane=null;
+      state.pendingStartAbs=0;
+    }
+    if(state.captureGrace?.lane===lane){
+      state.captureGrace=null;
+    }
+    state.recordSessionId=(state.recordSessionId||0)+1;
+    for(const [id,h] of state.liveHolds.entries()){
+      if(h.lane===lane){
+        h.captured=true;
+        h.captureMeta=null;
+        try{h.voice?.stop?.()}catch{}
+        state.liveHolds.delete(id);
+      }
+    }
+    if(activeScheduledVoices[lane]){
+      for(const v of activeScheduledVoices[lane]){
+        try{v.stop?.()}catch{}
+      }
+      activeScheduledVoices[lane].clear();
+    }
+    window.MB_V39?.clearLanePerformance?.(lane);
+    persist();
+    renderTracks();
+    renderWorkspace();
+    updateRecordButtons();
   }
 
   function titleLane(l){return l==='keys'?'Keys':l==='bass'?'Bass':'Beats'}
@@ -358,11 +434,11 @@
   function renderTracks(){
     const host=document.querySelector('#v34Tracks');if(!host)return;
     host.innerHTML=['beats','keys','bass'].map(lane=>{
-      const active=state.activeLane===lane,has=lane==='beats'||TRACKS[lane].events.length>0,rec=state.recordingLane===lane,pending=state.pendingLane===lane;
+      const active=state.activeLane===lane,has=lane==='beats'||TRACKS[lane].events.length>0,rec=state.recordingLane===lane,pending=state.pendingLane===lane,canClear=has||rec||pending;
       return `<article class="v34-track ${active?'active':''} ${rec?'recording':''}" data-lane="${lane}">
         <button class="v34-track-select" data-select="${lane}" type="button"><span class="v34-track-icon">${lane==='beats'?'🥁':lane==='keys'?'🎹':'♩'}</span><span><strong>${titleLane(lane)}</strong><small>${trackStatus(lane)}</small></span><i class="v34-track-led ${has&&!TRACKS[lane].muted?'on':''}"></i></button>
         <div class="v34-track-actions">
-          ${lane==='beats'?'<button data-action="variation" type="button">Variation</button>':`<button class="v34-rec-action ${pending?'armed':''} ${rec?'live':''}" data-action="record" type="button">${rec?'Finish':pending?'Cancel':'● Loop'}</button><button data-action="clear" type="button" ${has?'':'disabled'}>Clear</button>`}
+          ${lane==='beats'?'<button data-action="variation" type="button">Variation</button>':`<button class="v34-rec-action ${pending?'armed':''} ${rec?'live':''}" data-action="record" type="button">${rec?'Finish':pending?'Cancel':'● Loop'}</button><button data-action="clear" type="button" ${canClear?'':'disabled'}>Clear</button>`}
           <button data-action="mute" type="button">${TRACKS[lane].muted?'Unmute':'Mute'}</button>
         </div>
       </article>`;
@@ -371,7 +447,7 @@
       const card=e.target.closest('.v34-track');if(!card)return;const lane=card.dataset.lane,action=e.target.closest('button')?.dataset.action,select=e.target.closest('button')?.dataset.select;
       if(select){state.activeLane=lane;renderTracks();renderWorkspace();return}
       if(action==='mute'){TRACKS[lane].muted=!TRACKS[lane].muted;persist();renderTracks();return}
-      if(action==='clear'&&lane!=='beats'){TRACKS[lane].events=[];persist();renderTracks();return}
+      if(action==='clear'&&lane!=='beats'){clearLane(lane);return}
       if(action==='record')armLane(lane);
       if(action==='variation')rebuildBeat(true);
     };
@@ -467,7 +543,7 @@
     const save=document.querySelector('#saveBtn');if(save)save.hidden=true;
     const engine=document.querySelector('#engineBadge');if(engine)engine.hidden=true;
     window.addEventListener('pagehide',()=>{persist();if(state.running)stopTransport()});
-    window.MB_V34_LOOPER={state,tracks:TRACKS,start:startTransport,stop:stopTransport,open:openLooper,normalizeTrackEvents,version:'v34'};
+    window.MB_V34_LOOPER={state,tracks:TRACKS,start:startTransport,stop:stopTransport,open:openLooper,clearLane,normalizeTrackEvents,version:'v34'};
   }
   init();
 })();
