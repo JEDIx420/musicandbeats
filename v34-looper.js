@@ -375,6 +375,7 @@
       if(action==='record')armLane(lane);
       if(action==='variation')rebuildBeat(true);
     };
+    window.MB_V37?.decorate?.();
   }
   function renderTracksLight(){
     document.querySelectorAll('.v34-track').forEach(el=>{
@@ -409,7 +410,7 @@
     h.innerHTML=`<div class="v34-work-head"><div><span class="v34-kicker">KEYS</span><h2>Chord loop</h2></div><small>Tap ● Loop, then play these pads. Starts are quantized to 1/16.</small></div>
       <div class="v34-control-grid"><label>Voice<select id="v34KeysSound">${V34_KEY_SOUNDS.filter(x=>SOUND_PRESETS[x]).map(x=>`<option ${x===t.sound?'selected':''}>${esc(x)}</option>`).join('')}</select></label><label>Key<select id="v34KeysKey">${NOTES.map(x=>`<option ${x===t.key?'selected':''}>${x}</option>`).join('')}</select></label><button id="v34KeysRecord" class="v34-accent ${state.recordingLane==='keys'?'v34-rec-recording':state.pendingLane==='keys'?'v34-rec-armed':''}" type="button">${state.recordingLane==='keys'?`● Recording chord loop (${currentBar}/${state.bars})`:state.pendingLane==='keys'?'● Armed · starts at 1.1':'● Record chord loop'}</button></div>
       <div id="v34ChordPads" class="v34-pad-grid"></div>`;
-    h.querySelector('#v34KeysSound').addEventListener('change',e=>{t.sound=e.target.value;persist()});h.querySelector('#v34KeysKey').addEventListener('change',e=>{t.key=e.target.value;persist();renderKeysWorkspace(h)});h.querySelector('#v34KeysRecord').addEventListener('click',()=>armLane('keys'));renderChordSurface();
+    h.querySelector('#v34KeysSound').addEventListener('change',e=>{t.sound=e.target.value;persist()});h.querySelector('#v34KeysKey').addEventListener('change',e=>{t.key=e.target.value;persist();renderKeysWorkspace(h);window.MB_V39?.decorateCore?.()});h.querySelector('#v34KeysRecord').addEventListener('click',()=>armLane('keys'));renderChordSurface();
   }
   function renderChordSurface(){
     const el=document.querySelector('#v34ChordPads');if(!el)return;const t=TRACKS.keys;
@@ -430,7 +431,7 @@
       if(window.MB_V39?.sampleManager&&window.MB_V38?.SAMPLE_VOICES?.[e.target.value]){
         window.MB_V39.sampleManager.preloadVoice(e.target.value,24,60);
       }
-    });h.querySelector('#v34BassKey').addEventListener('change',e=>{t.key=e.target.value;persist();renderBassWorkspace(h)});h.querySelector('#v34BassRecord').addEventListener('click',()=>armLane('bass'));renderBassSurface();
+    });h.querySelector('#v34BassKey').addEventListener('change',e=>{t.key=e.target.value;persist();renderBassWorkspace(h);window.MB_V39?.decorateCore?.()});h.querySelector('#v34BassRecord').addEventListener('click',()=>armLane('bass'));renderBassSurface();
   }
   function renderBassSurface(){
     const el=document.querySelector('#v34BassPads');if(!el)return;const root=NOTES.indexOf(TRACKS.bass.key),scale=[0,2,4,5,7,9,11,12];

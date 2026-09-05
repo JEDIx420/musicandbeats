@@ -180,44 +180,19 @@ function applyPitch(){for(const h of [...S.leadPointers.values(),...(S.leadMidiV
 function bindStrip(){const p=document.querySelector('#v39PitchStrip'),m=document.querySelector('#v39ModStrip');if(!p||p.dataset.bound)return;p.dataset.bound=1;let a=null,b=null;p.onpointerdown=e=>{e.preventDefault();a=e.pointerId;p.setPointerCapture?.(a);pitchFrom(e,p)};p.onpointermove=e=>{if(e.pointerId===a)pitchFrom(e,p)};const pe=e=>{if(e.pointerId!==a)return;a=null;S.pitchBend=0;applyPitch();ui()};p.onpointerup=pe;p.onpointercancel=pe;p.onlostpointercapture=pe;m.onpointerdown=e=>{e.preventDefault();b=e.pointerId;m.setPointerCapture?.(b);modFrom(e,m)};m.onpointermove=e=>{if(e.pointerId===b)modFrom(e,m)};const me=e=>{if(e.pointerId===b)b=null};m.onpointerup=me;m.onpointercancel=me;m.onlostpointercapture=me}
 function ui(){const p=document.querySelector('#v39PitchStrip'),m=document.querySelector('#v39ModStrip'),po=document.querySelector('#v39PitchValue'),mo=document.querySelector('#v39ModValue');if(p)p.style.setProperty('--v39-pos',`${50-(S.pitchBend/S.pitchRange)*44}%`);if(m)m.style.setProperty('--v39-pos',`${94-S.mod*88}%`);if(po)po.textContent=`${S.pitchBend>=0?'+':''}${S.pitchBend.toFixed(1)}`;if(mo)mo.textContent=`${Math.round(S.mod*100)}%`}
 const options=()=>Object.entries(M.voiceGroups).map(([g,n])=>`<optgroup label="${g}">${n.map(x=>`<option value="${x}" ${x===V38.state.voice?'selected':''}>${x}</option>`).join('')}</optgroup>`).join('');
-function getUICollapse(key){try{const v=JSON.parse(localStorage.getItem('musicandbeats:ui:controls')||'{}');return !!v[key]}catch{return false}}
-function setUICollapse(key,val){try{const v=JSON.parse(localStorage.getItem('musicandbeats:ui:controls')||'{}');v[key]=!!val;localStorage.setItem('musicandbeats:ui:controls',JSON.stringify(v))}catch{}}
-
 function decorateCollapseLead(w){
-  let btn=w.querySelector('#v39LeadCollapseBtn');
-  if(!btn){
-    const head=w.querySelector('.v34-work-head');
-    if(!head)return;
-    btn=document.createElement('button');
-    btn.id='v39LeadCollapseBtn';
-    btn.type='button';
-    btn.className='v39-focus-toggle';
-    head.appendChild(btn);
-  }
-  const isCollapsed=getUICollapse('leadControls');
-  btn.setAttribute('aria-expanded',String(!isCollapsed));
-  btn.innerHTML=isCollapsed?'<span>Show controls</span> <i>⌄</i>':'<span>Hide controls</span> <i>⌃</i>';
-  btn.onclick=e=>{
-    e.preventDefault();
-    const next=!getUICollapse('leadControls');
-    setUICollapse('leadControls',next);
-    decorateCollapseLead(w);
-  };
-  const toolbar=w.querySelector('.v38-toolbar');
-  const fx=w.querySelector('.v38-fx');
-  const status=w.querySelector('#v38SampleStatus');
-  if(toolbar)toolbar.classList.toggle('v39-hidden',isCollapsed);
-  if(fx)fx.classList.toggle('v39-hidden',isCollapsed);
-  if(status)status.classList.toggle('v39-hidden',isCollapsed);
+  M.applyCollapse?.('lead');
 }
 
 function decorate(){
   const w=document.querySelector('#v34Workspace'),voice=w?.querySelector('#v38Voice');if(!voice)return;
-  decorateCollapseLead(w);
+  M.applyCollapse?.('lead');
   const valid=Object.values(M.voiceGroups).flat();if(M.hidden.has(V38.state.voice)||!valid.includes(V38.state.voice))V38.state.voice=S.leadVoice='Grand Piano';if(voice.dataset.v39!=='1'){voice.innerHTML=options();voice.dataset.v39='1'}voice.value=V38.state.voice;const t=w.querySelector('.v38-toolbar');if(t&&!w.querySelector('#v39SlideMode')){t.insertAdjacentHTML('beforeend',`<label>Slide<select id="v39SlideMode"><option value="on" ${S.slide?'selected':''}>Glide on</option><option value="off" ${!S.slide?'selected':''}>Off</option></select></label><label>Glide<input id="v39Glide" type="range" min="0" max="300" step="5" value="${S.glideMs}"><output>${S.glideMs} ms</output></label><label>Pitch range<select id="v39PitchRange">${[2,7,12].map(n=>`<option value="${n}" ${n===S.pitchRange?'selected':''}>±${n}</option>`).join('')}</select></label>`);w.querySelector('#v39SlideMode').onchange=e=>{S.slide=e.target.value==='on';M.persist()};w.querySelector('#v39Glide').oninput=e=>{S.glideMs=+e.target.value;e.target.closest('label').querySelector('output').textContent=`${S.glideMs} ms`;M.persist()};w.querySelector('#v39PitchRange').onchange=e=>{S.pitchRange=+e.target.value;S.pitchBend=clamp(S.pitchBend,-S.pitchRange,S.pitchRange);M.persist();ui()}}
   w.querySelector('#v38FxPreset')?.querySelector('option[value="Indian Space"]')?.remove();const k=w.querySelector('#v38Keyboard');if(k&&!k.closest('.v39-performance-shell')){const sh=document.createElement('div');sh.className='v39-performance-shell';k.before(sh);sh.innerHTML=`<aside class="v39-performance-controls"><div class="v39-strip-wrap"><span>PITCH</span><div id="v39PitchStrip" class="v39-perf-strip pitch" role="slider"><i></i></div><output id="v39PitchValue">0.0</output></div><div class="v39-strip-wrap"><span>MOD</span><div id="v39ModStrip" class="v39-perf-strip mod" role="slider"><i></i></div><output id="v39ModValue">${Math.round(S.mod*100)}%</output></div></aside><div class="v39-phone-rotate">Rotate phone to landscape for Pitch + Mod</div>`;sh.appendChild(k);bindStrip();ui()}
-  if(!voice.dataset.v39Change){voice.dataset.v39Change=1;voice.addEventListener('change',()=>{stopLead();const newVoice=voice.value;V38.state.voice=S.leadVoice=newVoice;M.persist();sampleManager.preloadVoice(newVoice);setTimeout(()=>{decorate()},0)})}}
+  if(!voice.dataset.v39Change){voice.dataset.v39Change=1;voice.addEventListener('change',()=>{stopLead();const newVoice=voice.value;V38.state.voice=S.leadVoice=newVoice;M.persist();sampleManager.preloadVoice(newVoice);setTimeout(()=>{decorate()},0)})}
+  M.applyCollapse?.('lead');
+}
 document.addEventListener('change',e=>{if(e.target.matches?.('#v38Layout,#v38StartOct,#v38Octaves'))stopLead();if(e.target.matches?.('#v38FxPreset,#v38Mod,#v38Drive,#v38Delay,#v38Space'))setTimeout(()=>{stopLead();if(ctx)buildFX()},0)},true);document.addEventListener('input',e=>{if(e.target.matches?.('#v38Intensity,#v38Wet,#v38Tone'))setTimeout(()=>{stopLead();if(ctx)buildFX()},0)},true);
 function monitor(){if(!ctx)return;const vib=Math.sin(ctx.currentTime*Math.PI*2*5.2)*S.mod*.42;for(const h of [...S.leadPointers.values(),...(S.leadMidiVoices?.values()||[])])h.voice?.apply?.(.018,vib);if(S.fxOutput?.gain)try{S.fxOutput.gain.setTargetAtTime(V37.mix?.lead??1.1,ctx.currentTime,.03)}catch{}}
-Object.assign(M,{decorateLead:decorate,stopLead,monitorLead:monitor,buildLeadFX:buildFX,makeLeadVoice:makeVoice,startMidiLead,stopMidiLead,applyPitch,updateLeadUI:ui,getUICollapse,setUICollapse});
+Object.assign(M,{decorateLead:decorate,stopLead,monitorLead:monitor,buildLeadFX:buildFX,makeLeadVoice:makeVoice,startMidiLead,stopMidiLead,applyPitch,updateLeadUI:ui});
 })();
