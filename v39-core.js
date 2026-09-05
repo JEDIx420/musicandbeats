@@ -8,7 +8,7 @@ const voiceGroups={'Pianos & Keys':['Grand Piano','Bright Piano','Electric Grand
 const hidden=new Set(['Bansuri Lead','Sitar Lead','Sample Shakuhachi','Sample Sitar']);
 const chordTypes={'Major':[0,4,7],'Minor':[0,3,7],'Diminished':[0,3,6],'Augmented':[0,4,8],'Sus2':[0,2,7],'Sus4':[0,5,7],'Power 5':[0,7,12],'6':[0,4,7,9],'m6':[0,3,7,9],'7':[0,4,7,10],'maj7':[0,4,7,11],'m7':[0,3,7,10],'dim7':[0,3,6,9],'m7b5':[0,3,6,10],'add9':[0,4,7,14],'madd9':[0,3,7,14],'9':[0,4,7,10,14],'maj9':[0,4,7,11,14],'m9':[0,3,7,10,14],'11':[0,4,7,10,14,17],'m11':[0,3,7,10,14,17],'13':[0,4,7,10,14,17,21],'m13':[0,3,7,10,14,17,21],'6/9':[0,4,7,9,14],'7sus4':[0,5,7,10],'mMaj7':[0,3,7,11],'maj7#11':[0,4,7,11,18],'7b9':[0,4,7,10,13],'7#9':[0,4,7,10,15],'7b5':[0,4,6,10],'7#5':[0,4,8,10],'add11':[0,4,7,17],'madd11':[0,3,7,17]};
 const suffix={Major:'',Minor:'m',Diminished:'°',Augmented:'+',Sus2:'sus2',Sus4:'sus4','Power 5':'5','6':'6','m6':'m6','7':'7',maj7:'maj7',m7:'m7',dim7:'dim7',m7b5:'m7♭5',add9:'add9',madd9:'madd9','9':'9',maj9:'maj9',m9:'m9','11':'11',m11:'m11','13':'13',m13:'m13','6/9':'6/9','7sus4':'7sus4',mMaj7:'mMaj7','maj7#11':'maj7♯11','7b9':'7♭9','7#9':'7♯9','7b5':'7♭5','7#5':'7♯5',add11:'add11',madd11:'madd11',Custom:' custom'};
-const S={transpose:{keys:0,bass:0},chords:[],chordsCustomized:false,chordKey:tracks.keys.key,editorSlot:0,editorOpen:false,slide:true,glideMs:85,pitchRange:2,pitchBend:0,mod:0,leadVoice:'Grand Piano',keyPointers:new Map(),keyLatch:null,heldShortcuts:new Map(),bassPointers:new Map(),bassLatch:null,heldBassShortcuts:new Map()};
+const S={transpose:{keys:0,bass:0},chords:[],chordsCustomized:false,chordKey:tracks.keys.key,editorSlot:0,editorOpen:false,slide:true,glideMs:85,pitchRange:2,pitchBend:0,mod:0,leadVoice:'Grand Piano',keyPointers:new Map(),keyLatch:null,heldShortcuts:new Map(),heldMidiPads:new Map(),bassPointers:new Map(),bassLatch:null,heldBassShortcuts:new Map(),heldMidiBassPads:new Map()};
 
 function getUICollapse(key){try{const v=JSON.parse(localStorage.getItem('musicandbeats:ui:controls')||'{}');return !!v[key]}catch{return false}}
 function setUICollapse(key,val){try{const v=JSON.parse(localStorage.getItem('musicandbeats:ui:controls')||'{}');v[key]=!!val;localStorage.setItem('musicandbeats:ui:controls',JSON.stringify(v))}catch{}}
@@ -27,10 +27,10 @@ function stopKey(h,end=ctx?.currentTime||0){if(!h)return;capture(h,end);h.voices
 function metaBass(now){if(L.recordingLane==='bass')return{startTime:L.recordStartTime,startStep:L.recordStartStep,boundary:L.recordStartTime+V.totalSteps()*V.stepSeconds()};const g=L.captureGrace;if(g?.lane==='bass'&&now<=g.boundary)return{startTime:g.startTime,startStep:g.startStep,boundary:g.boundary};return null}
 function captureBass(h,end){if(h.captured||!h.meta)return;const sec=V.stepSeconds(),m=h.meta,e=Math.min(end,m.boundary),s=Math.max(h.startedAt,m.startTime);if(e<=m.startTime){h.captured=true;return}let a=Math.round((s-m.startTime)/sec),b=Math.round((e-m.startTime)/sec);a=clamp(a,0,V.totalSteps()-1);b=clamp(Math.max(a+1,b),a+1,V.totalSteps());tracks.bass.events.push({step:V.wrapStep(m.startStep+a),durationSteps:b-a,midis:[...h.midis],preset:h.preset});h.captured=true;if(L.normalizeTrackEvents)tracks.bass.events=L.normalizeTrackEvents(tracks.bass.events,V.totalSteps(),!!V.extra.latchBass);V.persist()}
 function stopBass(h,end=ctx?.currentTime||0){if(!h)return;captureBass(h,end);h.voices?.forEach(v=>{try{v.stop()}catch{}});h.button?.classList.remove('active','v36-latched');if(S.bassLatch===h)S.bassLatch=null}
-function carryForwardRecord(lane,t){const sec=V.stepSeconds(),tot=V.totalSteps(),boundary=t+tot*sec;if(lane==='keys'){const holds=[...S.keyPointers.values(),...(S.keyLatch?[S.keyLatch]:[]),...S.heldShortcuts.values()];for(const h of holds){h.captured=false;h.startedAt=t;h.meta={lane:'keys',startTime:t,startStep:0,boundary}}}else if(lane==='bass'){const holds=[...S.bassPointers.values(),...(S.bassLatch?[S.bassLatch]:[]),...S.heldBassShortcuts.values()];for(const h of holds){h.captured=false;h.startedAt=t;h.meta={lane:'bass',startTime:t,startStep:0,boundary}}}}
-function onFinishRecording(lane,boundary,cancelled){if(cancelled)return;if(lane==='keys'&&S.keyLatch&&!S.keyLatch.captured&&S.keyLatch.meta)capture(S.keyLatch,boundary);if(lane==='bass'&&S.bassLatch&&!S.bassLatch.captured&&S.bassLatch.meta)captureBass(S.bassLatch,boundary);const latchOn=V.extra?.[lane==='keys'?'latchKeys':'latchBass']||false;if(tracks[lane]&&L.normalizeTrackEvents)tracks[lane].events=L.normalizeTrackEvents(tracks[lane].events,V.totalSteps(),latchOn);V.persist()}
-function releaseBass(){for(const h of S.bassPointers.values())stopBass(h);S.bassPointers.clear();stopBass(S.bassLatch);S.bassLatch=null;for(const h of S.heldBassShortcuts.values())stopBass(h);S.heldBassShortcuts.clear()}
-function releaseKeys(){for(const h of S.keyPointers.values())stopKey(h);S.keyPointers.clear();stopKey(S.keyLatch);S.keyLatch=null;for(const h of S.heldShortcuts.values())stopKey(h);S.heldShortcuts.clear();releaseBass()}
+function carryForwardRecord(lane,t){const sec=V.stepSeconds(),tot=V.totalSteps(),boundary=t+tot*sec;if(lane==='keys'){const holds=[...S.keyPointers.values(),...(S.keyLatch?[S.keyLatch]:[]),...S.heldShortcuts.values(),...(S.heldMidiPads?.values()||[])];for(const h of holds){h.captured=false;h.startedAt=t;h.meta={lane:'keys',startTime:t,startStep:0,boundary}}}else if(lane==='bass'){const holds=[...S.bassPointers.values(),...(S.bassLatch?[S.bassLatch]:[]),...S.heldBassShortcuts.values(),...(S.heldMidiBassPads?.values()||[])];for(const h of holds){h.captured=false;h.startedAt=t;h.meta={lane:'bass',startTime:t,startStep:0,boundary}}}}
+function onFinishRecording(lane,boundary,cancelled){if(cancelled)return;if(lane==='keys'){const all=[...(S.keyLatch?[S.keyLatch]:[]),...S.keyPointers.values(),...S.heldShortcuts.values(),...(S.heldMidiPads?.values()||[])];for(const h of all){if(!h.captured&&h.meta)capture(h,boundary)}}else if(lane==='bass'){const all=[...(S.bassLatch?[S.bassLatch]:[]),...S.bassPointers.values(),...S.heldBassShortcuts.values(),...(S.heldMidiBassPads?.values()||[])];for(const h of all){if(!h.captured&&h.meta)captureBass(h,boundary)}}const latchOn=V.extra?.[lane==='keys'?'latchKeys':'latchBass']||false;if(tracks[lane]&&L.normalizeTrackEvents)tracks[lane].events=L.normalizeTrackEvents(tracks[lane].events,V.totalSteps(),latchOn);V.persist()}
+function releaseBass(){for(const h of S.bassPointers.values())stopBass(h);S.bassPointers.clear();stopBass(S.bassLatch);S.bassLatch=null;for(const h of S.heldBassShortcuts.values())stopBass(h);S.heldBassShortcuts.clear();for(const h of (S.heldMidiBassPads?.values()||[]))stopBass(h);S.heldMidiBassPads?.clear()}
+function releaseKeys(){for(const h of S.keyPointers.values())stopKey(h);S.keyPointers.clear();stopKey(S.keyLatch);S.keyLatch=null;for(const h of S.heldShortcuts.values())stopKey(h);S.heldShortcuts.clear();for(const h of (S.heldMidiPads?.values()||[]))stopKey(h);S.heldMidiPads?.clear();releaseBass()}
 
 function playSampleBuffer(m,preset,vol=0.76,outNode=null){
   const ac=outNode?.context||ctx;
@@ -228,6 +228,57 @@ function handleKeyUp(e){
 }
 window.addEventListener('keydown',handleKeyDown,true);
 window.addEventListener('keyup',handleKeyUp,true);
+
+function triggerPadDown(lane,padIdx,vel=0.8){
+  const targetLane=lane||L.activeLane||'keys';
+  if(typeof primeAudio==='function')primeAudio();
+  if(!ctx)return null;
+  if(targetLane==='keys'){
+    if(padIdx<0||padIdx>=7)return null;
+    let pads=document.querySelectorAll('#v34ChordPads .v34-performance-pad');
+    if(!pads.length){
+      document.querySelector('button[data-select="keys"]')?.click();
+      pads=document.querySelectorAll('#v34ChordPads .v34-performance-pad');
+    }
+    const pad=pads[padIdx];
+    if(!pad)return null;
+    if(S.heldMidiPads.has(padIdx))return S.heldMidiPads.get(padIdx);
+    const h=startChordOnPad(pad);
+    if(h)S.heldMidiPads.set(padIdx,h);
+    return h;
+  }else if(targetLane==='bass'){
+    if(padIdx<0||padIdx>=8)return null;
+    let pads=document.querySelectorAll('#v34BassPads .v34-bass-pad');
+    if(!pads.length){
+      document.querySelector('button[data-select="bass"]')?.click();
+      pads=document.querySelectorAll('#v34BassPads .v34-bass-pad');
+    }
+    const pad=pads[padIdx];
+    if(!pad)return null;
+    if(S.heldMidiBassPads.has(padIdx))return S.heldMidiBassPads.get(padIdx);
+    const h=startBassOnPad(pad);
+    if(h)S.heldMidiBassPads.set(padIdx,h);
+    return h;
+  }
+  return null;
+}
+
+function triggerPadUp(lane,padIdx){
+  const targetLane=lane||L.activeLane||'keys';
+  if(targetLane==='keys'){
+    if(S.heldMidiPads.has(padIdx)){
+      const h=S.heldMidiPads.get(padIdx);
+      if(!V.extra.latchKeys&&h)stopKey(h);
+      S.heldMidiPads.delete(padIdx);
+    }
+  }else if(targetLane==='bass'){
+    if(S.heldMidiBassPads.has(padIdx)){
+      const h=S.heldMidiBassPads.get(padIdx);
+      if(!V.extra.latchBass&&h)stopBass(h);
+      S.heldMidiBassPads.delete(padIdx);
+    }
+  }
+}
 
 function setTranspose(lane,n){n=clamp(+n||0,-12,12);const d=n-S.transpose[lane];if(!d)return;if(lane==='keys')releaseKeys();else releaseBass();tracks[lane].events=(tracks[lane].events||[]).map(e=>({...e,midis:(e.midis||[]).map(m=>clamp(+m+d,0,127))}));S.transpose[lane]=n;persist();V.persist();decorate()}
 const tSelect=lane=>`<label class="v39-transpose">Transpose<select id="v39Transpose${lane==='keys'?'Keys':'Bass'}">${Array.from({length:25},(_,i)=>i-12).map(n=>`<option value="${n}" ${n===S.transpose[lane]?'selected':''}>${n>0?'+':''}${n} st</option>`).join('')}</select></label>`;
@@ -490,5 +541,5 @@ window.auditInstrumentPatches = async function(){
   return res;
 };
 
-window.MB_V39={version:'v39',V,api,V38,state:S,SAMPLES,voiceGroups,hidden,chordTypes,clamp,persist,releaseKeys,releaseBass,setTranspose,decorateCore:decorate,monitor,carryForwardRecord,onFinishRecording,getUICollapse,setUICollapse,auditInstrumentPatches:window.auditInstrumentPatches};persist();
+window.MB_V39={version:'v39',V,api,V38,state:S,SAMPLES,voiceGroups,hidden,chordTypes,clamp,persist,releaseKeys,releaseBass,setTranspose,decorateCore:decorate,monitor,carryForwardRecord,onFinishRecording,triggerPadDown,triggerPadUp,startChordOnPad,startBassOnPad,stopKey,stopBass,getUICollapse,setUICollapse,auditInstrumentPatches:window.auditInstrumentPatches};persist();
 })();
