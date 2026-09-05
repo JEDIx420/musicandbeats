@@ -101,6 +101,79 @@
   color: #fff;
 }
 
+.v39-midi-badges {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-left: 8px;
+}
+
+.v39-midi-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.v39-midi-badge-profile {
+  background: rgba(139, 92, 246, 0.15);
+  border: 1px solid rgba(139, 92, 246, 0.4);
+  color: #c4b5fd;
+}
+
+.v39-midi-badge-connected {
+  background: rgba(74, 222, 128, 0.15);
+  border: 1px solid rgba(74, 222, 128, 0.4);
+  color: #4ade80;
+}
+
+.v39-midi-badge-connecting {
+  background: rgba(245, 158, 11, 0.15);
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  color: #fbbf24;
+}
+
+.v39-midi-badge-disconnected {
+  background: rgba(100, 116, 139, 0.15);
+  border: 1px solid rgba(100, 116, 139, 0.4);
+  color: #94a3b8;
+}
+
+.v39-midi-badge-unsupported {
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  color: #f87171;
+}
+
+.v39-midi-learn-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  border-radius: 8px;
+  padding: 10px 14px;
+  color: #fbbf24;
+  font-size: 13px;
+  font-weight: 500;
+  animation: v39BannerPulse 1.5s infinite alternate;
+}
+
+@keyframes v39BannerPulse {
+  from { background: rgba(245, 158, 11, 0.08); border-color: rgba(245, 158, 11, 0.3); }
+  to { background: rgba(245, 158, 11, 0.18); border-color: rgba(245, 158, 11, 0.6); }
+}
+
+.v39-midi-learn-banner strong {
+  color: #fff;
+}
+
 .v39-midi-close {
   background: transparent;
   border: none;

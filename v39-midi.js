@@ -2,21 +2,23 @@
 (()=>{
   if (window.MB_MIDI) return;
 
-  const CONFIG_KEY = 'musicandbeats:midi:config';
-  const DEVICE_KEY = 'musicandbeats:midi:device';
+  const CONFIG_KEY = 'musicandbeats:midi:akai_config';
+  const FALLBACK_CONFIG_KEY = 'musicandbeats:midi:config';
+  const DEVICE_KEY = 'musicandbeats:midi:preferred_device';
+  const FALLBACK_DEVICE_KEY = 'musicandbeats:midi:device';
 
   const DEFAULT_CONFIG = {
     profile: 'akai_mpk_mini',
     keyboardTarget: 'lead', // 'lead', 'bass', 'keys'
     pads: [
-      { target: 'pad_0', label: 'Pad 1', type: 'note', number: 36, channel: -1 },
-      { target: 'pad_1', label: 'Pad 2', type: 'note', number: 37, channel: -1 },
-      { target: 'pad_2', label: 'Pad 3', type: 'note', number: 38, channel: -1 },
-      { target: 'pad_3', label: 'Pad 4', type: 'note', number: 39, channel: -1 },
-      { target: 'pad_4', label: 'Pad 5', type: 'note', number: 40, channel: -1 },
-      { target: 'pad_5', label: 'Pad 6', type: 'note', number: 41, channel: -1 },
-      { target: 'pad_6', label: 'Pad 7', type: 'note', number: 42, channel: -1 },
-      { target: 'pad_7', label: 'Pad 8', type: 'note', number: 43, channel: -1 }
+      { target: 'pad_0', label: 'Pad 1', sublabel: 'Keys 1 · Bass 1', type: 'note', number: 36, channel: -1 },
+      { target: 'pad_1', label: 'Pad 2', sublabel: 'Keys 2 · Bass 2', type: 'note', number: 37, channel: -1 },
+      { target: 'pad_2', label: 'Pad 3', sublabel: 'Keys 3 · Bass 3', type: 'note', number: 38, channel: -1 },
+      { target: 'pad_3', label: 'Pad 4', sublabel: 'Keys 4 · Bass 4', type: 'note', number: 39, channel: -1 },
+      { target: 'pad_4', label: 'Pad 5', sublabel: 'Keys 5 · Bass 5', type: 'note', number: 40, channel: -1 },
+      { target: 'pad_5', label: 'Pad 6', sublabel: 'Keys 6 · Bass 6', type: 'note', number: 41, channel: -1 },
+      { target: 'pad_6', label: 'Pad 7', sublabel: 'Keys 7 · Bass 7', type: 'note', number: 42, channel: -1 },
+      { target: 'pad_7', label: 'Pad 8', sublabel: 'Bass 8 · (Keys: Safe)', type: 'note', number: 43, channel: -1 }
     ],
     knobs: [
       { target: 'beats_level', label: 'K1 · Beats Vol', type: 'cc', number: 70, channel: -1 },
@@ -32,11 +34,26 @@
 
   let config = JSON.parse(JSON.stringify(DEFAULT_CONFIG));
   try {
-    const saved = JSON.parse(localStorage.getItem(CONFIG_KEY) || 'null');
+    const raw = localStorage.getItem(CONFIG_KEY) || localStorage.getItem(FALLBACK_CONFIG_KEY);
+    const saved = raw ? JSON.parse(raw) : null;
     if (saved) {
       if (saved.keyboardTarget) config.keyboardTarget = saved.keyboardTarget;
-      if (Array.isArray(saved.pads) && saved.pads.length === 8) config.pads = saved.pads;
-      if (Array.isArray(saved.knobs) && saved.knobs.length === 8) config.knobs = saved.knobs;
+      if (Array.isArray(saved.pads) && saved.pads.length === 8) {
+        config.pads.forEach((p, idx) => {
+          if (saved.pads[idx]) {
+            p.number = saved.pads[idx].number;
+            p.channel = saved.pads[idx].channel ?? -1;
+          }
+        });
+      }
+      if (Array.isArray(saved.knobs) && saved.knobs.length === 8) {
+        config.knobs.forEach((k, idx) => {
+          if (saved.knobs[idx]) {
+            k.number = saved.knobs[idx].number;
+            k.channel = saved.knobs[idx].channel ?? -1;
+          }
+        });
+      }
     }
   } catch {}
 
@@ -201,27 +218,12 @@
     // 3. Clear UI keys
     document.querySelectorAll('#v38Keyboard .v38-key.active').forEach(k => k.classList.remove('active'));
 
-    // 4. Release active pads
-    for (const [padIdx, pointerId] of state.activeMidiPads) {
-      releasePadPointer(padIdx, pointerId);
-    }
+    // 4. Release active pads and reset core state
+    try {
+      window.MB_V39?.releaseKeys?.();
+      window.MB_V39?.releaseBass?.();
+    } catch {}
     state.activeMidiPads.clear();
-  }
-
-  function releasePadPointer(padIdx, pointerId) {
-    const looper = window.MB_V34_LOOPER;
-    const lane = looper?.state?.activeLane || 'keys';
-    if (lane === 'keys') {
-      const pads = document.querySelectorAll('#v34ChordPads .v34-performance-pad');
-      if (pads[padIdx]) {
-        pads[padIdx].dispatchEvent(new PointerEvent('pointerup', { bubbles: true, cancelable: true, pointerId }));
-      }
-    } else if (lane === 'bass') {
-      const pads = document.querySelectorAll('#v34BassPads .v34-bass-pad');
-      if (pads[padIdx]) {
-        pads[padIdx].dispatchEvent(new PointerEvent('pointerup', { bubbles: true, cancelable: true, pointerId }));
-      }
-    }
   }
 
   function handleMIDIMessage(e) {
@@ -273,6 +275,8 @@
           return;
         }
       }
+      // Completely suppress any musical action or parameter change during Learn mode
+      return;
     }
 
     // 2. Control Change Messages
@@ -338,38 +342,31 @@
     }
   }
 
-  function handlePadDown(padIdx, velocity) {
+  function handlePadDown(padIdx, velocity = 0.8) {
     const looper = window.MB_V34_LOOPER;
     const lane = looper?.state?.activeLane || 'keys';
-    const pointerId = 7000 + padIdx;
-    state.activeMidiPads.set(padIdx, pointerId);
+    state.activeMidiPads.set(padIdx, lane);
 
     if (lane === 'keys') {
       if (padIdx < 7) {
-        const pads = document.querySelectorAll('#v34ChordPads .v34-performance-pad');
-        const pad = pads[padIdx];
-        if (pad) {
-          pad.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true, pointerId }));
-        }
-      } else if (padIdx === 7) {
-        // Pad 8: Toggle latch
-        window.MB_V36?.toggleLatch?.('keys');
+        window.MB_V39?.triggerPadDown?.('keys', padIdx, velocity);
       }
+      // Pad 8 in Keys mode is a safe no-op: never triggers nonexistent 8th chord
     } else if (lane === 'bass') {
       if (padIdx < 8) {
-        const pads = document.querySelectorAll('#v34BassPads .v34-bass-pad');
-        const pad = pads[padIdx];
-        if (pad) {
-          pad.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true, pointerId }));
-        }
+        window.MB_V39?.triggerPadDown?.('bass', padIdx, velocity);
       }
     }
   }
 
   function handlePadUp(padIdx) {
-    const pointerId = state.activeMidiPads.get(padIdx) || (7000 + padIdx);
+    const lane = state.activeMidiPads.get(padIdx) || window.MB_V34_LOOPER?.state?.activeLane || 'keys';
     state.activeMidiPads.delete(padIdx);
-    releasePadPointer(padIdx, pointerId);
+
+    if (lane === 'keys' && padIdx === 7) {
+      return;
+    }
+    window.MB_V39?.triggerPadUp?.(lane, padIdx);
   }
 
   function handleKeyboardDown(midi, velocity, ch = 1) {
@@ -405,6 +402,18 @@
     }
   }
 
+  function syncCardLevel(lane, valNorm) {
+    const card = lane === 'lead' ? document.querySelector('#v37LeadTrack') : document.querySelector(`.v34-track[data-lane="${lane}"]`);
+    if (!card) return;
+    const wrap = card.querySelector('.v37-card-level');
+    if (!wrap) return;
+    const input = wrap.querySelector('input');
+    const output = wrap.querySelector('output');
+    const pct = Math.round(valNorm * 100);
+    if (input && document.activeElement !== input) input.value = String(pct);
+    if (output) output.textContent = `${pct}%`;
+  }
+
   function applyKnobAction(target, val) {
     const V37 = window.MB_V37;
     const V38 = window.MB_V38;
@@ -413,49 +422,64 @@
     switch (target) {
       case 'beats_level':
         if (V37?.mix) {
-          V37.mix.beats = Number((val * 1.2).toFixed(2));
+          const v = Number((val * 1.2).toFixed(2));
+          V37.mix.beats = v;
           V37.saveLocal?.();
+          V37.applyMix?.();
+          syncCardLevel('beats', v);
         }
         break;
       case 'keys_level':
         if (V37?.mix) {
-          V37.mix.keys = Number((val * 1.2).toFixed(2));
+          const v = Number((val * 1.2).toFixed(2));
+          V37.mix.keys = v;
           V37.saveLocal?.();
+          V37.applyMix?.();
+          syncCardLevel('keys', v);
         }
         break;
       case 'bass_level':
         if (V37?.mix) {
-          V37.mix.bass = Number((val * 1.2).toFixed(2));
+          const v = Number((val * 1.2).toFixed(2));
+          V37.mix.bass = v;
           V37.saveLocal?.();
+          V37.applyMix?.();
+          syncCardLevel('bass', v);
         }
         break;
       case 'lead_level':
         if (V37?.mix) {
-          V37.mix.lead = Number((val * 1.4).toFixed(2));
+          const v = Number((val * 1.4).toFixed(2));
+          V37.mix.lead = v;
           V37.saveLocal?.();
+          V37.applyMix?.();
+          syncCardLevel('lead', v);
         }
         break;
       case 'lead_tone':
         if (V38?.state?.fx) {
-          V38.state.fx.tone = Math.round(val * 100);
+          const t = Math.round(val * 100);
+          V38.state.fx.tone = t;
           const el = document.querySelector('#v38Tone');
-          if (el) el.value = V38.state.fx.tone;
+          if (el) el.value = t;
           if (typeof ctx !== 'undefined' && ctx) window.MB_V39?.buildLeadFX?.();
         }
         break;
       case 'lead_intensity':
         if (V38?.state?.fx) {
-          V38.state.fx.intensity = Math.round(val * 100);
+          const intens = Math.round(val * 100);
+          V38.state.fx.intensity = intens;
           const el = document.querySelector('#v38Intensity');
-          if (el) el.value = V38.state.fx.intensity;
+          if (el) el.value = intens;
           if (typeof ctx !== 'undefined' && ctx) window.MB_V39?.buildLeadFX?.();
         }
         break;
       case 'lead_space':
         if (V38?.state?.fx) {
-          V38.state.fx.wet = Math.round(val * 100);
+          const w = Math.round(val * 100);
+          V38.state.fx.wet = w;
           const el = document.querySelector('#v38Wet');
-          if (el) el.value = V38.state.fx.wet;
+          if (el) el.value = w;
           if (typeof ctx !== 'undefined' && ctx) window.MB_V39?.buildLeadFX?.();
         }
         break;
@@ -505,6 +529,7 @@
               <small>HARDWARE INTEGRATION</small>
               <h2>MIDI · AKAI MPK mini</h2>
             </div>
+            <div id="v39MidiBadges" class="v39-midi-badges"></div>
           </div>
           <button type="button" class="v39-midi-close" data-close aria-label="Close">×</button>
         </header>
@@ -544,6 +569,16 @@
     const connected = state.status === 'connected';
     const isAkai = state.isAkai;
 
+    const badgeContainer = document.querySelector('#v39MidiBadges');
+    if (badgeContainer) {
+      const statusClass = connected ? 'connected' : state.status === 'connecting' ? 'connecting' : state.status === 'unsupported' ? 'unsupported' : 'disconnected';
+      const statusLabel = connected ? '● Connected' : state.status === 'connecting' ? 'Connecting…' : state.status === 'unsupported' ? 'Unsupported' : 'Disconnected';
+      badgeContainer.innerHTML = `
+        <span class="v39-midi-badge v39-midi-badge-profile">AKAI MPK mini Profile</span>
+        <span class="v39-midi-badge v39-midi-badge-${statusClass}">${statusLabel}</span>
+      `;
+    }
+
     content.innerHTML = `
       <!-- Device Bar -->
       <div class="v39-midi-status-bar">
@@ -560,6 +595,13 @@
           <button id="v39MidiResetBtn" type="button" class="v39-btn-sm v39-btn-danger">Reset Mapping</button>
         </div>
       </div>
+
+      ${state.learning ? `
+        <div class="v39-midi-learn-banner">
+          <span>Listening for MIDI input for <strong>${state.learning.kind === 'pad' ? `Pad ${state.learning.index + 1} (${config.pads[state.learning.index].sublabel})` : config.knobs[state.learning.index].label}</strong>… Send a Note or CC to bind.</span>
+          <button type="button" class="v39-btn-sm" id="v39MidiCancelLearnBtn">Cancel Learn</button>
+        </div>
+      ` : ''}
 
       <!-- Live Diagnostics Monitor -->
       <div class="v39-midi-monitor" id="v39MidiMonitor">
@@ -598,7 +640,7 @@
               <div class="v39-midi-card ${isLearning ? 'learning' : ''}">
                 <div class="v39-midi-card-head">
                   <strong>Pad ${i + 1}</strong>
-                  <span>${i === 7 ? 'Latch / Note 8' : `Slot ${i + 1}`}</span>
+                  <span>${p.sublabel || `Slot ${i + 1}`}</span>
                 </div>
                 <div class="v39-midi-card-value">${p.number !== null ? midiNoteLabel(p.number) : 'Unmapped'}</div>
                 <div class="v39-midi-card-actions">
@@ -685,8 +727,15 @@
     const resetBtn = content.querySelector('#v39MidiResetBtn');
     if (resetBtn) {
       resetBtn.onclick = () => {
-        config = JSON.parse(JSON.stringify(DEFAULT_CONFIG));
-        saveConfig();
+        resetConfig();
+        updateUI();
+      };
+    }
+
+    const cancelLearnBtn = content.querySelector('#v39MidiCancelLearnBtn');
+    if (cancelLearnBtn) {
+      cancelLearnBtn.onclick = () => {
+        state.learning = null;
         updateUI();
       };
     }
@@ -742,6 +791,11 @@
     });
   }
 
+  function resetConfig() {
+    config = JSON.parse(JSON.stringify(DEFAULT_CONFIG));
+    saveConfig();
+  }
+
   function init() {
     installButton();
     // Re-install button when navbar changes
@@ -765,7 +819,9 @@
   window.MB_MIDI = {
     version: 'v39',
     state,
-    config,
+    get config() { return config; },
+    set config(val) { config = val; },
+    resetConfig,
     requestAccess,
     connectInput,
     disconnectCurrent,

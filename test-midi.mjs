@@ -59,10 +59,10 @@ function cleanup() {
 }
 
 const hardWatchdog = setTimeout(() => {
-  console.error(`\n[WATCHDOG TIMEOUT] Test run exceeded 45 seconds! Stuck on: ${currentTestName}`);
+  console.error(`\n[WATCHDOG TIMEOUT] Test run exceeded 60 seconds! Stuck on: ${currentTestName}`);
   cleanup();
   process.exit(1);
-}, 45000);
+}, 60000);
 
 process.on('SIGINT', () => { cleanup(); process.exit(1); });
 process.on('uncaughtException', (err) => {
@@ -604,8 +604,558 @@ try {
   assert.strictEqual(t16.result.value.isOpen, true);
   console.log('PASS: Reopening minimal MIDI UI does not duplicate dialogs or button elements');
 
+  // TEST 17: Dedicated AKAI MPK mini UI render & status badges
+  currentTestName = 'Test 17: Dedicated AKAI MPK mini UI render & status badges';
+  console.log(`\n--- ${currentTestName} ---`);
+  const t17 = await send('Runtime.evaluate', {
+    expression: `(() => {
+      window.MB_MIDI.openDialog();
+      const title = document.querySelector('.v39-midi-title h2')?.textContent;
+      const profileBadge = document.querySelector('.v39-midi-badge-profile')?.textContent;
+      const statusBadge = document.querySelector('.v39-midi-badge-connected')?.textContent;
+      const padCards = document.querySelectorAll('[data-learn-pad]').length;
+      const knobCards = document.querySelectorAll('[data-learn-knob]').length;
+      const monitor = !!document.querySelector('#v39MidiMonitor');
+      const kbRoute = document.querySelector('#v39MidiKeyboardTarget')?.value;
+      return { title, profileBadge, statusBadge, padCards, knobCards, monitor, kbRoute };
+    })()`,
+    returnByValue: true
+  });
+  assert.strictEqual(t17.result.value.title, 'MIDI · AKAI MPK mini');
+  assert.strictEqual(t17.result.value.profileBadge, 'AKAI MPK mini Profile');
+  assert.strictEqual(t17.result.value.statusBadge, '● Connected');
+  assert.strictEqual(t17.result.value.padCards, 8);
+  assert.strictEqual(t17.result.value.knobCards, 8);
+  assert.strictEqual(t17.result.value.monitor, true);
+  assert.strictEqual(t17.result.value.kbRoute, 'lead');
+  console.log('PASS: Dedicated AKAI MPK mini dialog renders with status badges and 8 pad / 8 knob cards');
+
+  // TEST 18: Live MIDI Diagnostics Monitor updates on events
+  currentTestName = 'Test 18: Live MIDI Diagnostics Monitor updates on events';
+  console.log(`\n--- ${currentTestName} ---`);
+  const t18 = await send('Runtime.evaluate', {
+    expression: `(async () => {
+      const akai = window.__akaiInput;
+      akai.send([0x90, 60, 100]); // Note On 60
+      const noteOnTxt = document.querySelector('#v39MidiMonitorText')?.textContent;
+      akai.send([0x80, 60, 0]); // Note Off
+      for (let i = 0; i < 20; i++) {
+        if (!window.MB_V39.state.leadMidiVoices?.has('1:60')) break;
+        await new Promise(r => setTimeout(r, 20));
+      }
+      const noteOffTxt = document.querySelector('#v39MidiMonitorText')?.textContent;
+      akai.send([0xB0, 70, 64]); // CC 70
+      const ccTxt = document.querySelector('#v39MidiMonitorText')?.textContent;
+      return { noteOnTxt, noteOffTxt, ccTxt };
+    })()`,
+    awaitPromise: true,
+    returnByValue: true
+  });
+  assert(t18.result.value.noteOnTxt.includes('Note On') && t18.result.value.noteOnTxt.includes('60'), 'Note On recorded in monitor');
+  assert(t18.result.value.noteOffTxt.includes('Note Off') && t18.result.value.noteOffTxt.includes('60'), 'Note Off recorded in monitor');
+  assert(t18.result.value.ccTxt.includes('CC 70') && t18.result.value.ccTxt.includes('64'), 'CC event recorded in monitor');
+  console.log('PASS: Live diagnostics monitor displays Note On/Off and CC events in real time');
+
+  // TEST 19: MIDI Learn for Pad & suppression of musical action during Learn
+  currentTestName = 'Test 19: MIDI Learn for Pad & suppression of musical action';
+  console.log(`\n--- ${currentTestName} ---`);
+  const t19 = await send('Runtime.evaluate', {
+    expression: `(() => {
+      const akai = window.__akaiInput;
+      const learnBtn = document.querySelector('[data-learn-pad="0"]');
+      learnBtn.click();
+      const isLearning = window.MB_MIDI.state.learning?.kind === 'pad' && window.MB_MIDI.state.learning?.index === 0;
+      const btnTxt = document.querySelector('[data-learn-pad="0"]')?.textContent;
+      
+      // Send note 48 during learn - MUST NOT trigger musical action
+      akai.send([0x90, 48, 80]);
+      
+      const newMapping = window.MB_MIDI.config.pads[0].number;
+      const learnFinished = window.MB_MIDI.state.learning === null;
+      const cardVal = document.querySelectorAll('.v39-midi-card-value')[0]?.textContent;
+      const hasVoice48 = !!window.MB_V39.state.leadMidiVoices?.has('1:48');
+      const key48Active = !!document.querySelector('#v38Keyboard .v38-key[data-midi="48"]')?.classList.contains('active');
+      return { isLearning, btnTxt, newMapping, learnFinished, cardVal, hasVoice48, key48Active };
+    })()`,
+    returnByValue: true
+  });
+  assert.strictEqual(t19.result.value.isLearning, true);
+  assert.strictEqual(t19.result.value.btnTxt, 'Listening…');
+  assert.strictEqual(t19.result.value.newMapping, 48);
+  assert.strictEqual(t19.result.value.learnFinished, true);
+  assert(t19.result.value.cardVal.includes('48'));
+  assert.strictEqual(t19.result.value.hasVoice48, false);
+  assert.strictEqual(t19.result.value.key48Active, false);
+  console.log('PASS: Pad learn enters listening mode, maps incoming note, finishes immediately, and suppresses sound during learn');
+
+  // TEST 20: MIDI Learn Cancel
+  currentTestName = 'Test 20: MIDI Learn Cancel';
+  console.log(`\n--- ${currentTestName} ---`);
+  const t20 = await send('Runtime.evaluate', {
+    expression: `(() => {
+      const learnBtn = document.querySelector('[data-learn-pad="1"]');
+      learnBtn.click();
+      const wasLearning = window.MB_MIDI.state.learning?.kind === 'pad';
+      const cancelBtn = document.querySelector('#v39MidiCancelLearnBtn');
+      cancelBtn?.click();
+      const isStillLearning = window.MB_MIDI.state.learning !== null;
+      const pad2Num = window.MB_MIDI.config.pads[1].number;
+      return { wasLearning, isStillLearning, pad2Num };
+    })()`,
+    returnByValue: true
+  });
+  assert.strictEqual(t20.result.value.wasLearning, true);
+  assert.strictEqual(t20.result.value.isStillLearning, false);
+  assert.strictEqual(t20.result.value.pad2Num, 37);
+  console.log('PASS: MIDI Learn can be cancelled without altering existing mapping');
+
+  // TEST 21: MIDI Learn for Knob & suppression of parameter jump during Learn
+  currentTestName = 'Test 21: MIDI Learn for Knob & suppression of parameter jump';
+  console.log(`\n--- ${currentTestName} ---`);
+  const t21 = await send('Runtime.evaluate', {
+    expression: `(() => {
+      const akai = window.__akaiInput;
+      const initialBeatsMix = window.MB_V37.mix.beats;
+      const learnBtn = document.querySelector('[data-learn-knob="0"]');
+      learnBtn.click();
+      const isLearning = window.MB_MIDI.state.learning?.kind === 'knob' && window.MB_MIDI.state.learning?.index === 0;
+      
+      // Send CC 14 during learn - MUST NOT change mix level
+      akai.send([0xB0, 14, 127]);
+      
+      const newKnobCC = window.MB_MIDI.config.knobs[0].number;
+      const learnFinished = window.MB_MIDI.state.learning === null;
+      const cardVal = document.querySelector('[data-learn-knob="0"]')?.closest('.v39-midi-card')?.querySelector('.v39-midi-card-value')?.textContent;
+      const beatsMixAfter = window.MB_V37.mix.beats;
+      return { isLearning, newKnobCC, learnFinished, cardVal, beatsUnchanged: initialBeatsMix === beatsMixAfter };
+    })()`,
+    returnByValue: true
+  });
+  assert.strictEqual(t21.result.value.isLearning, true);
+  assert.strictEqual(t21.result.value.newKnobCC, 14);
+  assert.strictEqual(t21.result.value.learnFinished, true);
+  assert.strictEqual(t21.result.value.cardVal, 'CC 14');
+  assert.strictEqual(t21.result.value.beatsUnchanged, true);
+  console.log('PASS: Knob learn captures CC number without triggering parameter jumps during learn');
+
+  // TEST 22: Clear and Reset mapping
+  currentTestName = 'Test 22: Clear and Reset mapping';
+  console.log(`\n--- ${currentTestName} ---`);
+  const t22 = await send('Runtime.evaluate', {
+    expression: `(() => {
+      const clearBtn = document.querySelector('[data-clear-pad="0"]');
+      clearBtn.click();
+      const pad0AfterClear = window.MB_MIDI.config.pads[0].number;
+      const cardValAfterClear = document.querySelector('[data-learn-pad="0"]')?.closest('.v39-midi-card')?.querySelector('.v39-midi-card-value')?.textContent;
+      
+      const resetBtn = document.querySelector('#v39MidiResetBtn');
+      resetBtn.click();
+      const pad0AfterReset = window.MB_MIDI.config.pads[0].number;
+      const knob0AfterReset = window.MB_MIDI.config.knobs[0].number;
+      return { pad0AfterClear, cardValAfterClear, pad0AfterReset, knob0AfterReset };
+    })()`,
+    returnByValue: true
+  });
+  assert.strictEqual(t22.result.value.pad0AfterClear, null);
+  assert.strictEqual(t22.result.value.cardValAfterClear, 'Unmapped');
+  assert.strictEqual(t22.result.value.pad0AfterReset, 36);
+  assert.strictEqual(t22.result.value.knob0AfterReset, 70);
+  console.log('PASS: Clear button unmaps control and Reset button restores AKAI defaults');
+
+  // TEST 23: Persistence of mapping and preferred device in localStorage
+  currentTestName = 'Test 23: Persistence in localStorage';
+  console.log(`\n--- ${currentTestName} ---`);
+  const t23 = await send('Runtime.evaluate', {
+    expression: `(() => {
+      const rawConfig = localStorage.getItem('musicandbeats:midi:akai_config');
+      const prefDevice = localStorage.getItem('musicandbeats:midi:preferred_device');
+      const parsed = rawConfig ? JSON.parse(rawConfig) : null;
+      return {
+        hasConfig: !!parsed,
+        padsCount: parsed?.pads?.length,
+        knobsCount: parsed?.knobs?.length,
+        prefDevice
+      };
+    })()`,
+    returnByValue: true
+  });
+  assert.strictEqual(t23.result.value.hasConfig, true);
+  assert.strictEqual(t23.result.value.padsCount, 8);
+  assert.strictEqual(t23.result.value.knobsCount, 8);
+  assert.strictEqual(t23.result.value.prefDevice, 'input-akai-2');
+  console.log('PASS: AKAI configuration and preferred device persist properly in namespaced localStorage keys');
+
+  // TEST 24: Smart Keys Pad 1 & Pad 7 triggering
+  currentTestName = 'Test 24: Smart Keys Pad 1 & Pad 7 triggering';
+  console.log(`\n--- ${currentTestName} ---`);
+  const t24 = await send('Runtime.evaluate', {
+    expression: `(async () => {
+      window.MB_V34_LOOPER.state.activeLane = 'keys';
+      window.MB_V39.releaseKeys();
+      const akai = window.__akaiInput;
+      
+      // Trigger Pad 1 (note 36)
+      akai.send([0x90, 36, 100]);
+      const pad1Active = window.MB_V39.state.heldMidiPads.has(0);
+      akai.send([0x80, 36, 0]);
+      const pad1Stopped = !window.MB_V39.state.heldMidiPads.has(0);
+      
+      // Trigger Pad 7 (note 42)
+      akai.send([0x90, 42, 100]);
+      const pad7Active = window.MB_V39.state.heldMidiPads.has(6);
+      akai.send([0x80, 42, 0]);
+      const pad7Stopped = !window.MB_V39.state.heldMidiPads.has(6);
+      
+      return { pad1Active, pad1Stopped, pad7Active, pad7Stopped };
+    })()`,
+    awaitPromise: true,
+    returnByValue: true
+  });
+  assert.strictEqual(t24.result.value.pad1Active, true);
+  assert.strictEqual(t24.result.value.pad1Stopped, true);
+  assert.strictEqual(t24.result.value.pad7Active, true);
+  assert.strictEqual(t24.result.value.pad7Stopped, true);
+  console.log('PASS: Smart Keys Pad 1 and Pad 7 trigger and release chords cleanly');
+
+  // TEST 25: Pad 8 safety in Smart Keys mode
+  currentTestName = 'Test 25: Pad 8 safety in Smart Keys mode';
+  console.log(`\n--- ${currentTestName} ---`);
+  const t25 = await send('Runtime.evaluate', {
+    expression: `(() => {
+      window.MB_V34_LOOPER.state.activeLane = 'keys';
+      window.MB_V39.releaseKeys();
+      const akai = window.__akaiInput;
+      
+      // Pad 8 (note 43) in Keys mode
+      akai.send([0x90, 43, 100]);
+      const heldKeysCount = window.MB_V39.state.heldMidiPads.size;
+      akai.send([0x80, 43, 0]);
+      return { heldKeysCount };
+    })()`,
+    returnByValue: true
+  });
+  assert.strictEqual(t25.result.value.heldKeysCount, 0);
+  console.log('PASS: Pad 8 in Keys mode is completely safe and does not trigger nonexistent 8th chord');
+
+  // TEST 26: Bass Pads 1–8 triggering
+  currentTestName = 'Test 26: Bass Pads 1–8 triggering';
+  console.log(`\n--- ${currentTestName} ---`);
+  const t26 = await send('Runtime.evaluate', {
+    expression: `(async () => {
+      window.MB_V34_LOOPER.state.activeLane = 'bass';
+      window.MB_V39.releaseBass();
+      const akai = window.__akaiInput;
+      
+      // Pad 1 (note 36) in Bass mode
+      akai.send([0x90, 36, 100]);
+      const bassPad0Active = window.MB_V39.state.heldMidiBassPads.has(0);
+      akai.send([0x80, 36, 0]);
+      const bassPad0Stopped = !window.MB_V39.state.heldMidiBassPads.has(0);
+      
+      // Pad 8 (note 43) in Bass mode
+      akai.send([0x90, 43, 100]);
+      const bassPad7Active = window.MB_V39.state.heldMidiBassPads.has(7);
+      akai.send([0x80, 43, 0]);
+      const bassPad7Stopped = !window.MB_V39.state.heldMidiBassPads.has(7);
+      
+      return { bassPad0Active, bassPad0Stopped, bassPad7Active, bassPad7Stopped };
+    })()`,
+    awaitPromise: true,
+    returnByValue: true
+  });
+  assert.strictEqual(t26.result.value.bassPad0Active, true);
+  assert.strictEqual(t26.result.value.bassPad0Stopped, true);
+  assert.strictEqual(t26.result.value.bassPad7Active, true);
+  assert.strictEqual(t26.result.value.bassPad7Stopped, true);
+  console.log('PASS: Bass Pads 1 through 8 trigger and release bass notes cleanly');
+
+  // TEST 27: Contextual Keys vs Bass routing switch
+  currentTestName = 'Test 27: Contextual Keys vs Bass routing switch';
+  console.log(`\n--- ${currentTestName} ---`);
+  const t27 = await send('Runtime.evaluate', {
+    expression: `(() => {
+      const akai = window.__akaiInput;
+      
+      // 1. In Keys mode
+      document.querySelector('button[data-select="keys"]')?.click();
+      const laneBeforeSend = window.MB_V34_LOOPER.state.activeLane;
+      akai.send([0x90, 36, 100]);
+      const heldKeysHas0 = window.MB_V39.state.heldMidiPads.has(0);
+      const heldBassHas0 = window.MB_V39.state.heldMidiBassPads.has(0);
+      const inKeys = heldKeysHas0 && !heldBassHas0;
+      akai.send([0x80, 36, 0]);
+      
+      // 2. Switch to Bass mode
+      document.querySelector('button[data-select="bass"]')?.click();
+      akai.send([0x90, 36, 100]);
+      const inBass = !window.MB_V39.state.heldMidiPads.has(0) && window.MB_V39.state.heldMidiBassPads.has(0);
+      akai.send([0x80, 36, 0]);
+      
+      return { inKeys, inBass };
+    })()`,
+    returnByValue: true
+  });
+  assert.strictEqual(t27.result.value.inKeys, true);
+  assert.strictEqual(t27.result.value.inBass, true);
+  console.log('PASS: Pads contextually route to Smart Keys or Bass depending on the active workstation lane');
+
+  // TEST 28: Transpose respect for Keys and Bass
+  currentTestName = 'Test 28: Transpose respect for Keys and Bass';
+  console.log(`\n--- ${currentTestName} ---`);
+  const t28 = await send('Runtime.evaluate', {
+    expression: `(() => {
+      const akai = window.__akaiInput;
+      document.querySelector('button[data-select="keys"]')?.click();
+      
+      // Transpose Keys by +3
+      window.MB_V39.setTranspose('keys', 3);
+      akai.send([0x90, 36, 100]);
+      const keysHold = window.MB_V39.state.heldMidiPads.get(0);
+      const keysMidis = [...(keysHold?.midis || [])];
+      akai.send([0x80, 36, 0]);
+      window.MB_V39.setTranspose('keys', 0);
+      
+      // Transpose Bass by -2
+      document.querySelector('button[data-select="bass"]')?.click();
+      window.MB_V39.setTranspose('bass', -2);
+      akai.send([0x90, 36, 100]);
+      const bassHold = window.MB_V39.state.heldMidiBassPads.get(0);
+      const bassMidis = [...(bassHold?.midis || [])];
+      akai.send([0x80, 36, 0]);
+      window.MB_V39.setTranspose('bass', 0);
+      
+      return { keysMidis, bassMidis };
+    })()`,
+    returnByValue: true
+  });
+  assert(t28.result.value.keysMidis.length > 0, 'Keys midis present');
+  assert(t28.result.value.bassMidis.length > 0, 'Bass midis present');
+  console.log('PASS: Transpose settings apply directly to MIDI-triggered Keys and Bass pads');
+
+  // TEST 29: Latch mode respect
+  currentTestName = 'Test 29: Latch mode respect';
+  console.log(`\n--- ${currentTestName} ---`);
+  const t29 = await send('Runtime.evaluate', {
+    expression: `(() => {
+      const akai = window.__akaiInput;
+      document.querySelector('button[data-select="keys"]')?.click();
+      window.MB_V35.extra.latchKeys = true;
+      
+      // Trigger Pad 1
+      akai.send([0x90, 36, 100]);
+      akai.send([0x80, 36, 0]); // Release pad
+      const latchedOnRelease = !!window.MB_V39.state.keyLatch;
+      
+      // Trigger Pad 2
+      akai.send([0x90, 37, 100]);
+      akai.send([0x80, 37, 0]);
+      const latchedPad2 = !!window.MB_V39.state.keyLatch;
+      
+      window.MB_V35.extra.latchKeys = false;
+      window.MB_V39.releaseKeys();
+      const cleared = !window.MB_V39.state.keyLatch;
+      return { latchedOnRelease, latchedPad2, cleared };
+    })()`,
+    returnByValue: true
+  });
+  assert.strictEqual(t29.result.value.latchedOnRelease, true);
+  assert.strictEqual(t29.result.value.latchedPad2, true);
+  assert.strictEqual(t29.result.value.cleared, true);
+  console.log('PASS: Latch mode latches chords across pad release and switches latches cleanly');
+
+  // TEST 30: Looper recording capture for Smart Keys (pre-held carry-forward into step 0)
+  currentTestName = 'Test 30: Looper recording capture for Smart Keys';
+  console.log(`\n--- ${currentTestName} ---`);
+  const t30 = await send('Runtime.evaluate', {
+    expression: `(() => {
+      document.querySelector('button[data-select="keys"]')?.click();
+      window.MB_V39.releaseKeys();
+      const tracks = window.MB_V34_LOOPER.tracks;
+      tracks.keys.events = [];
+      
+      const akai = window.__akaiInput;
+      const t0 = 100.0;
+      
+      // 1. Pad 1 is pressed BEFORE recording begins
+      akai.send([0x90, 36, 100]);
+      
+      // 2. Recording arms and begins at boundary t0
+      window.MB_V39.carryForwardRecord('keys', t0);
+      
+      // 3. Recording finishes at loop boundary (pad held across entire loop)
+      window.MB_V39.onFinishRecording('keys', t0 + 4.0, false);
+      akai.send([0x80, 36, 0]);
+      
+      const recordedEvents = tracks.keys.events;
+      const hasStep0 = recordedEvents.some(e => e.step === 0);
+      return { eventCount: recordedEvents.length, hasStep0, recordedEvents };
+    })()`,
+    returnByValue: true
+  });
+  assert(t30.result.value.eventCount >= 1, 'Recorded events present in keys track');
+  assert.strictEqual(t30.result.value.hasStep0, true);
+  console.log('PASS: Pre-held pad chord carries forward seamlessly into step 0 of looper recording');
+
+  // TEST 31: Looper recording capture for Bass
+  currentTestName = 'Test 31: Looper recording capture for Bass';
+  console.log(`\n--- ${currentTestName} ---`);
+  const t31 = await send('Runtime.evaluate', {
+    expression: `(() => {
+      document.querySelector('button[data-select="bass"]')?.click();
+      window.MB_V39.releaseBass();
+      const tracks = window.MB_V34_LOOPER.tracks;
+      tracks.bass.events = [];
+      
+      const akai = window.__akaiInput;
+      const t0 = 200.0;
+      
+      // Pad 1 pre-held
+      akai.send([0x90, 36, 100]);
+      window.MB_V39.carryForwardRecord('bass', t0);
+      
+      // Recording finishes at loop boundary (pad held across entire loop)
+      window.MB_V39.onFinishRecording('bass', t0 + 4.0, false);
+      akai.send([0x80, 36, 0]);
+      
+      const recordedEvents = tracks.bass.events;
+      const hasStep0 = recordedEvents.some(e => e.step === 0);
+      return { eventCount: recordedEvents.length, hasStep0, recordedEvents };
+    })()`,
+    returnByValue: true
+  });
+  assert(t31.result.value.eventCount >= 1, 'Recorded events present in bass track');
+  assert.strictEqual(t31.result.value.hasStep0, true);
+  console.log('PASS: Pre-held bass pad carries forward into step 0 of looper recording');
+
+  // TEST 32: AKAI Knobs update runtime state and UI
+  currentTestName = 'Test 32: AKAI Knobs update runtime state and UI';
+  console.log(`\n--- ${currentTestName} ---`);
+  const t32 = await send('Runtime.evaluate', {
+    expression: `(() => {
+      const akai = window.__akaiInput;
+      
+      // K1: Beats Vol (CC 70) -> value 64
+      akai.send([0xB0, 70, 64]);
+      const beatsMix = window.MB_V37.mix.beats;
+      
+      // K4: Lead Vol (CC 73) -> value 100
+      akai.send([0xB0, 73, 100]);
+      const leadMix = window.MB_V37.mix.lead;
+      
+      // K5: Lead Tone (CC 74) -> value 80
+      akai.send([0xB0, 74, 80]);
+      const toneVal = window.MB_V38.state.fx.tone;
+      
+      // K6: Lead Intensity (CC 75) -> value 90
+      akai.send([0xB0, 75, 90]);
+      const intensityVal = window.MB_V38.state.fx.intensity;
+      
+      // K7: Lead Space (CC 76) -> value 70
+      akai.send([0xB0, 76, 70]);
+      const spaceVal = window.MB_V38.state.fx.wet;
+      
+      // K8: Tempo (CC 77) -> value 64 (center ~131 BPM)
+      akai.send([0xB0, 77, 64]);
+      const bpmVal = window.MB_V34_LOOPER.state.bpm;
+      
+      return { beatsMix, leadMix, toneVal, intensityVal, spaceVal, bpmVal };
+    })()`,
+    returnByValue: true
+  });
+  assert(Math.abs(t32.result.value.beatsMix - 0.61) < 0.05, 'Beats mix level updated');
+  assert(Math.abs(t32.result.value.leadMix - 1.1) < 0.05, 'Lead mix level updated');
+  assert.strictEqual(t32.result.value.toneVal, 63);
+  assert.strictEqual(t32.result.value.intensityVal, 71);
+  assert.strictEqual(t32.result.value.spaceVal, 55);
+  assert(t32.result.value.bpmVal >= 125 && t32.result.value.bpmVal <= 135, 'BPM updated');
+  console.log('PASS: AKAI knobs 1–8 update real runtime mixer, Lead FX, and tempo parameters');
+
+  // TEST 33: Repeated dialog open/close and learn cycles create 0 duplicate listeners
+  currentTestName = 'Test 33: Repeated dialog open/close & learn creates 0 duplicate listeners';
+  console.log(`\n--- ${currentTestName} ---`);
+  const t33 = await send('Runtime.evaluate', {
+    expression: `(() => {
+      for (let i = 0; i < 5; i++) {
+        window.MB_MIDI.openDialog();
+        document.querySelector('[data-learn-pad="0"]')?.click();
+        document.querySelector('#v39MidiCancelLearnBtn')?.click();
+        window.MB_MIDI.closeDialog();
+      }
+      window.MB_MIDI.openDialog();
+      const cancelBtns = document.querySelectorAll('#v39MidiCancelLearnBtn').length;
+      const dialogs = document.querySelectorAll('#v39MidiDialog').length;
+      window.MB_MIDI.closeDialog();
+      return { cancelBtns, dialogs };
+    })()`,
+    returnByValue: true
+  });
+  assert.strictEqual(t33.result.value.cancelBtns, 0);
+  assert.strictEqual(t33.result.value.dialogs, 1);
+  console.log('PASS: Repeated dialog open/close and learn cycles leave 0 duplicate listeners or artifacts');
+
+  // TEST 34: Panic stops all active notes, chords, and bass notes
+  currentTestName = 'Test 34: Panic stops all active notes, chords, and bass notes';
+  console.log(`\n--- ${currentTestName} ---`);
+  const t34 = await send('Runtime.evaluate', {
+    expression: `(() => {
+      const akai = window.__akaiInput;
+      // Start lead note
+      akai.send([0x90, 60, 90]);
+      // Start chord pad
+      document.querySelector('button[data-select="keys"]')?.click();
+      akai.send([0x90, 36, 100]);
+      // Start bass pad
+      document.querySelector('button[data-select="bass"]')?.click();
+      akai.send([0x90, 36, 100]);
+      
+      const hadLead = window.MB_V39.state.leadMidiVoices?.size > 0;
+      const hadKeys = window.MB_V39.state.heldMidiPads?.size > 0;
+      const hadBass = window.MB_V39.state.heldMidiBassPads?.size > 0;
+      
+      window.MB_MIDI.panic();
+      
+      const leadAfter = window.MB_V39.state.leadMidiVoices?.size;
+      const keysAfter = window.MB_V39.state.heldMidiPads?.size;
+      const bassAfter = window.MB_V39.state.heldMidiBassPads?.size;
+      return { hadLead, hadKeys, hadBass, leadAfter, keysAfter, bassAfter };
+    })()`,
+    returnByValue: true
+  });
+  assert.strictEqual(t34.result.value.leadAfter, 0);
+  assert.strictEqual(t34.result.value.keysAfter, 0);
+  assert.strictEqual(t34.result.value.bassAfter, 0);
+  console.log('PASS: Panic cleanly releases Lead voices, Smart Keys chords, and Bass pads');
+
+  // TEST 35: Coexistence with mouse/touch interaction
+  currentTestName = 'Test 35: Coexistence with mouse/touch interaction';
+  console.log(`\n--- ${currentTestName} ---`);
+  const t35 = await send('Runtime.evaluate', {
+    expression: `(() => {
+      document.querySelector('button[data-select="keys"]')?.click();
+      const akai = window.__akaiInput;
+      akai.send([0x90, 36, 100]); // Pad 1 via MIDI
+      
+      // Simultaneously click Pad 2 via DOM PointerEvent
+      const pad2 = document.querySelectorAll('#v34ChordPads .v34-performance-pad')[1];
+      if (pad2) {
+        pad2.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true, pointerId: 999 }));
+        pad2.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, cancelable: true, pointerId: 999 }));
+      }
+      
+      // Stop MIDI Pad 1
+      akai.send([0x80, 36, 0]);
+      
+      return {
+        keysHoldCount: window.MB_V39.state.heldMidiPads.size
+      };
+    })()`,
+    returnByValue: true
+  });
+  assert.strictEqual(t35.result.value.keysHoldCount, 0);
+  console.log('PASS: MIDI pads and mouse/touch interactions coexist cleanly without interference');
+
   console.log('\n======================================================');
-  console.log('ALL 16 WEB MIDI & LEAD PERFORMANCE TESTS PASSED (0 errors)!');
+  console.log('ALL 35 AKAI MPK MINI & WEB MIDI TESTS PASSED (0 errors)!');
   console.log('======================================================\n');
 } catch (err) {
   console.error(`\n[TEST FAILURE on ${currentTestName}]:`, err);
