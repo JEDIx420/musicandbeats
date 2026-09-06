@@ -372,16 +372,21 @@
     const sessId=state.recordSessionId;
     const meta={lane,startTime:state.recordStartTime,startStep:state.recordStartStep,boundary,sessionId:sessId};
     if(!cancelled&&ctx&&boundary>ctx.currentTime){state.captureGrace=meta;setTimeout(()=>{if(state.captureGrace===meta)state.captureGrace=null},Math.max(0,(boundary-ctx.currentTime)*1000)+24)}else state.captureGrace=null;
-    for(const h of state.liveHolds.values())if(h.lane===lane){h.captureMeta=h.captureMeta||meta;captureHold(h,boundary,true)}
+    if(!cancelled){
+      for(const h of state.liveHolds.values())if(h.lane===lane&&!h.cancelled){h.captureMeta=h.captureMeta||meta;captureHold(h,boundary,true)}
+    }
     window.MB_V39?.onFinishRecording?.(lane,boundary,cancelled);
     const latchOn=window.MB_V35?.extra?.[lane==='keys'?'latchKeys':'latchBass']||false;
-    TRACKS[lane].events=normalizeTrackEvents(TRACKS[lane].events,totalSteps(),latchOn);
+    if(!cancelled){
+      TRACKS[lane].events=normalizeTrackEvents(TRACKS[lane].events,totalSteps(),latchOn);
+    }
     state.recordingLane=null;persist();renderAll();updateRecordButtons();
     if(!cancelled)updateClock(1,`${titleLane(lane)} loop ready`,'Locked to the master grid');
   }
   function captureHold(h,endTime,forced=false){
+    if(h.cancelled)return;
     const meta=h.captureMeta||(state.recordingLane===h.lane?{lane:h.lane,startTime:state.recordStartTime,startStep:state.recordStartStep,boundary:Infinity,sessionId:state.recordSessionId}:null);if(!meta||meta.lane!==h.lane)return;
-    if(meta.sessionId&&state.recordSessionId&&meta.sessionId!==state.recordSessionId)return;
+    if(state.recordSessionId&&(!meta.sessionId||meta.sessionId!==state.recordSessionId))return;
     const cappedEnd=Math.min(endTime,meta.boundary??endTime),relStart=(h.startedAt-meta.startTime)/stepSeconds(),relEnd=(cappedEnd-meta.startTime)/stepSeconds();
     let a=Math.round(relStart),b=Math.round(relEnd);a=clamp(a,0,totalSteps()-1);b=Math.max(a+1,b);
     const step=wrapStep(meta.startStep+a),durationSteps=Math.max(1,Math.min(totalSteps(),b-a));
@@ -406,8 +411,10 @@
     for(const [id,h] of state.liveHolds.entries()){
       if(h.lane===lane){
         h.captured=true;
+        h.cancelled=true;
         h.captureMeta=null;
         try{h.voice?.stop?.()}catch{}
+        if(Array.isArray(h.voices)){h.voices.forEach(v=>{try{v.stop?.()}catch{}})}
         state.liveHolds.delete(id);
       }
     }
@@ -418,6 +425,8 @@
       activeScheduledVoices[lane].clear();
     }
     window.MB_V39?.clearLanePerformance?.(lane);
+    window.MB_V36?.releaseLane?.(lane);
+    window.MB_V35?.persist?.();
     persist();
     renderTracks();
     renderWorkspace();
@@ -517,7 +526,7 @@
   function bindPads(el,lane,resolver){
     const end=(e,b)=>{const h=state.liveHolds.get(e.pointerId);if(!h)return;h.voices.forEach(v=>v.stop());captureHold(h,ctx?.currentTime||h.startedAt+.1);state.liveHolds.delete(e.pointerId);b?.classList.remove('active')};
     el.querySelectorAll('.v34-performance-pad').forEach(b=>{
-      b.addEventListener('pointerdown',e=>{e.preventDefault();primeAudio();const r=resolver(b),voices=r.midis.map((m,i)=>startVoice(m,r.preset,.78-Math.min(i*.04,.2))),now=ctx.currentTime,grace=state.captureGrace&&state.captureGrace.lane===lane&&now<=state.captureGrace.boundary?state.captureGrace:null,captureMeta=state.recordingLane===lane?{lane,startTime:state.recordStartTime,startStep:state.recordStartStep,boundary:state.recordStartTime+loopSeconds()}:grace;state.liveHolds.set(e.pointerId,{lane,midis:r.midis,preset:r.preset,voices,startedAt:now,captureMeta});b.classList.add('active');try{b.setPointerCapture(e.pointerId)}catch{}});
+      b.addEventListener('pointerdown',e=>{e.preventDefault();primeAudio();const r=resolver(b),voices=r.midis.map((m,i)=>startVoice(m,r.preset,.78-Math.min(i*.04,.2))),now=ctx.currentTime,grace=state.captureGrace&&state.captureGrace.lane===lane&&now<=state.captureGrace.boundary?state.captureGrace:null,captureMeta=state.recordingLane===lane?{lane,startTime:state.recordStartTime,startStep:state.recordStartStep,boundary:state.recordStartTime+loopSeconds(),sessionId:state.recordSessionId}:grace;state.liveHolds.set(e.pointerId,{lane,midis:r.midis,preset:r.preset,voices,startedAt:now,captureMeta,cancelled:false});b.classList.add('active');try{b.setPointerCapture(e.pointerId)}catch{}});
       b.addEventListener('pointerup',e=>end(e,b));b.addEventListener('pointercancel',e=>end(e,b));b.addEventListener('lostpointercapture',e=>end(e,b));
     });
   }

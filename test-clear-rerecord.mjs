@@ -169,6 +169,7 @@ const testResult = await send('Runtime.evaluate', {
       // Verify Take A notes NEVER appear in Take B!
       const pad4Midis = V39.midis ? V39.midis(V39.state.chords[4]) : [];
       const pad5Midis = V39.midis ? V39.midis(V39.state.chords[5]) : [];
+      record('test_pad_midis_resolved', pad4Midis.length > 0 && pad5Midis.length > 0, 'Pad MIDIs resolved for validation');
       const takeBAllMidis = takeBEvents.flatMap(e => e.midis);
       const containsTakeAChord4 = pad4Midis.length > 0 && pad4Midis.every(m => takeBAllMidis.includes(m));
       const containsTakeAChord5 = pad5Midis.length > 0 && pad5Midis.every(m => takeBAllMidis.includes(m));
