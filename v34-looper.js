@@ -68,15 +68,21 @@
 
   function installHome(){
     const home=document.querySelector('#homeScreen');if(!home)return;
-    home.innerHTML=`<div class="v34-home-card">
-      <span class="v34-kicker">MOBILE LOOP WORKSTATION</span>
-      <h1>Build a backing track.<br><span>Play over it.</span></h1>
-      <p>Beats, chords and bass — one synced loop, without a recording workflow getting in the way.</p>
-      <button id="v34Enter" class="v34-enter" type="button"><span>▶</span><strong>Play</strong></button>
-      <div class="v34-home-chips"><span>🥁 Beats</span><span>🎹 Keys</span><span>♩ Bass</span></div>
-      <small>Bar-quantized looping · Web Audio clock · Local-first</small>
-    </div>`;
-    document.querySelector('#v34Enter')?.addEventListener('click',async()=>{await ensureAudio();openLooper()});
+    if(!home.querySelector('.v34-home-card')){
+      home.innerHTML=`<div class="v34-home-card">
+        <span class="v34-kicker">MOBILE LOOP WORKSTATION</span>
+        <h1>Build a backing track.<br><span>Play over it.</span></h1>
+        <p>Beats, chords and bass — one synced loop, without a recording workflow getting in the way.</p>
+        <button id="v34Enter" class="v34-enter" type="button"><span>▶</span><strong>Play</strong></button>
+        <div class="v34-home-chips"><span>🥁 Beats</span><span>🎹 Keys</span><span>♩ Bass</span></div>
+        <small>Bar-quantized looping · Web Audio clock · Local-first</small>
+      </div>`;
+    }
+    const enter=document.querySelector('#v34Enter');
+    if(enter&&!enter.dataset.boundV34){
+      enter.dataset.boundV34='1';
+      enter.addEventListener('click',async()=>{await ensureAudio();openLooper()});
+    }
   }
 
   function installLooper(){

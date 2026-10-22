@@ -17,10 +17,10 @@ function v8InstallBootGate(){
   }
   if(!document.querySelector('#mbBootSplash')){const splash=document.createElement('div');splash.id='mbBootSplash';splash.innerHTML='<div><img src="icon.svg" alt=""><strong>Music & Beats</strong><span>LOADING WORKSTATION</span><i></i></div>';document.body.prepend(splash)}
   try{clearTimeout(window.__MB_BOOT_FAILSAFE)}catch{}
-  window.__MB_BOOT_FAILSAFE=setTimeout(()=>{document.documentElement.classList.remove('mb-booting');document.documentElement.classList.add('mb-ready')},3500);
+  window.__MB_BOOT_FAILSAFE=setTimeout(()=>{document.documentElement.classList.remove('mb-booting');document.documentElement.classList.add('mb-ready')},15000);
 }
 function v8PreloadPatches(){
-  ['v9','v10','v12','v13','v14','v15','v16','v17','v17-fixes','v17-post','v18','v18-fixes','v19','v22','v23'].forEach(name=>{
+  ['v9','v10','v12','v13','v14','v15','v16','v17','v17-fixes','v17-post','v18','v18-fixes','v19','v22','v23','v24','v25','v26','v27','v28','v29','core-performance','core-performance-fixes','ui-core','help','keyboard-ui','v34-looper','v35-core','v35-ui','v35','v36','v37','v38','v38-stability','v39-core','v39-lead','v39','v39-midi'].forEach(name=>{
     if(document.querySelector(`link[data-mb-preload="${name}"]`))return;
     const link=document.createElement('link');link.rel='preload';link.as='script';link.href=`${name}.js`;link.dataset.mbPreload=name;document.head.appendChild(link);
   });

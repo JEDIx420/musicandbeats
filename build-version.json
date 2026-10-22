@@ -1,5 +1,5 @@
 {
-  "build": "v39.1",
-  "contains": "Boot splash gate, live chord editor, desktop 1-7 keys shortcuts, in-card mixer levels, collapsible performance focus controls, GeneralUser GS sample preloading and caching",
-  "publishedAt": "2026-09-03T14:55:00+05:30"
+  "build": "v39.3",
+  "contains": "Boot splash gate and parallel patch preloading to eliminate flash of old UI during load",
+  "publishedAt": "2026-10-23T01:05:00+05:30"
 }

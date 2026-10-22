@@ -26,7 +26,7 @@
     window.__MB_BOOT_FAILSAFE = setTimeout(function() {
       document.documentElement.classList.remove('mb-booting');
       document.documentElement.classList.add('mb-ready');
-    }, 3500);
+    }, 15000);
   </script>
   <link rel="manifest" href="manifest.webmanifest" />
   <link rel="icon" href="icon.svg" type="image/svg+xml" />
@@ -37,6 +37,70 @@
   <link rel="stylesheet" href="v6-patch.css" />
   <link rel="stylesheet" href="v7.css" />
   <link rel="stylesheet" href="v8.css" />
+  <link rel="stylesheet" href="v9.css" />
+  <link rel="stylesheet" href="v10.css" />
+  <link rel="stylesheet" href="v12.css" />
+  <link rel="stylesheet" href="v14.css" />
+  <link rel="stylesheet" href="v15.css" />
+  <link rel="stylesheet" href="v16.css" />
+  <link rel="stylesheet" href="v17.css" />
+  <link rel="stylesheet" href="v18.css" />
+  <link rel="stylesheet" href="v19.css" />
+  <link rel="stylesheet" href="v22.css" />
+  <link rel="stylesheet" href="v23.css" />
+  <link rel="stylesheet" href="v24.css" />
+  <link rel="stylesheet" href="v25.css" />
+  <link rel="stylesheet" href="v26.css" />
+  <link rel="stylesheet" href="v27.css" />
+  <link rel="stylesheet" href="v28.css" />
+  <link rel="stylesheet" href="v29.css" />
+  <link rel="stylesheet" href="help.css" />
+  <link rel="stylesheet" href="keyboard-ui.css" />
+  <link rel="stylesheet" href="v34-looper.css" />
+  <link rel="stylesheet" href="v35.css" />
+  <link rel="stylesheet" href="v36.css" />
+  <link rel="stylesheet" href="v37.css" />
+  <link rel="stylesheet" href="v38.css" />
+  <link rel="stylesheet" href="v39.css" />
+  <link rel="stylesheet" href="v39-midi.css" />
+  <link rel="preload" as="script" href="v9.js" />
+  <link rel="preload" as="script" href="v10.js" />
+  <link rel="preload" as="script" href="v12.js" />
+  <link rel="preload" as="script" href="v13.js" />
+  <link rel="preload" as="script" href="v14.js" />
+  <link rel="preload" as="script" href="v15.js" />
+  <link rel="preload" as="script" href="v16.js" />
+  <link rel="preload" as="script" href="v17.js" />
+  <link rel="preload" as="script" href="v17-fixes.js" />
+  <link rel="preload" as="script" href="v17-post.js" />
+  <link rel="preload" as="script" href="v18.js" />
+  <link rel="preload" as="script" href="v18-fixes.js" />
+  <link rel="preload" as="script" href="v19.js" />
+  <link rel="preload" as="script" href="v22.js" />
+  <link rel="preload" as="script" href="v23.js" />
+  <link rel="preload" as="script" href="v24.js" />
+  <link rel="preload" as="script" href="v25.js" />
+  <link rel="preload" as="script" href="v26.js" />
+  <link rel="preload" as="script" href="v27.js" />
+  <link rel="preload" as="script" href="v28.js" />
+  <link rel="preload" as="script" href="v29.js" />
+  <link rel="preload" as="script" href="core-performance.js" />
+  <link rel="preload" as="script" href="core-performance-fixes.js" />
+  <link rel="preload" as="script" href="ui-core.js" />
+  <link rel="preload" as="script" href="help.js" />
+  <link rel="preload" as="script" href="keyboard-ui.js" />
+  <link rel="preload" as="script" href="v34-looper.js" />
+  <link rel="preload" as="script" href="v35-core.js" />
+  <link rel="preload" as="script" href="v35-ui.js" />
+  <link rel="preload" as="script" href="v35.js" />
+  <link rel="preload" as="script" href="v36.js" />
+  <link rel="preload" as="script" href="v37.js" />
+  <link rel="preload" as="script" href="v38.js" />
+  <link rel="preload" as="script" href="v38-stability.js" />
+  <link rel="preload" as="script" href="v39-core.js" />
+  <link rel="preload" as="script" href="v39-lead.js" />
+  <link rel="preload" as="script" href="v39.js" />
+  <link rel="preload" as="script" href="v39-midi.js" />
 </head>
 <body>
   <div id="mbBootSplash" aria-hidden="true"><div><img src="icon.svg" alt=""><strong>Music & Beats</strong><span>LOADING WORKSTATION</span><i></i></div></div>
@@ -50,12 +114,18 @@
     </header>
     <main>
       <section id="homeScreen" class="screen home-screen active">
-        <div class="hero-copy"><span class="eyebrow">START A SESSION</span><h1>What do you want to do?</h1><p>Jump straight into a groove, or build a structured loop one layer at a time.</p></div>
-        <div class="mode-grid">
-          <button class="mode-card play-card" id="enterPlay" type="button"><div class="mode-icon">▶</div><div class="mode-copy"><span class="mode-kicker">INSTANT</span><h2>Play</h2><p>Choose a beat, plug in a guitar, play editable Smart Keys or bass, and perform live.</p><span class="mode-cta">Open performance mode →</span></div></button>
-          <button class="mode-card record-card" id="enterRecord" type="button"><div class="mode-icon record-dot">●</div><div class="mode-copy"><span class="mode-kicker">BUILD A LOOP</span><h2>Record</h2><p>Set the tempo and loop length, then record each layer individually with guided timing and a tracks timeline.</p><span class="mode-cta">Start a recording session →</span></div></button>
+        <div class="v34-home-card">
+          <span class="v34-kicker">MOBILE LOOP WORKSTATION</span>
+          <h1>Build a backing track.<br><span>Play over it.</span></h1>
+          <p>Beats, chords and bass — one synced loop, without a recording workflow getting in the way.</p>
+          <button id="v34Enter" class="v34-enter" type="button"><span>▶</span><strong>Start jam</strong></button>
+          <div class="v34-home-chips"><span>🥁 Beats</span><span>🎹 Keys</span><span>♩ Bass</span></div>
+          <small>Bar-quantized looping · Web Audio clock · Local-first</small>
         </div>
-        <div class="home-feature-row"><span>6 layers</span><span>Smart Keys</span><span>Beat generator</span><span>Bass</span><span>Guitar FX</span><span>Local saving</span></div>
+        <div class="v6-hidden-control" hidden aria-hidden="true" style="display:none!important">
+          <button id="enterPlay" type="button"></button>
+          <button id="enterRecord" type="button"></button>
+        </div>
       </section>
       <section id="playScreen" class="screen play-screen">
         <div class="mode-header"><div><span class="eyebrow">PLAY MODE</span><h1>Jam instantly</h1><p>Pick a groove, then play guitar, Smart Keys or bass over it.</p></div><button class="ghost-btn back-home" type="button">← Home</button></div>
