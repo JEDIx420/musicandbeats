@@ -1,4 +1,20 @@
 /* Music & Beats V34 — mobile-first backing looper */
+.home-support { margin-top: 16px; }
+.home-support-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 38px;
+  padding: 0 12px;
+  border: 1px solid #a897ff55;
+  border-radius: 10px;
+  color: #ded6ff;
+  background: #a897ff13;
+  font-size: 13px;
+  text-decoration: none;
+}
+.home-support-link:hover { background: #a897ff30; }
+.home-support-link:focus-visible { outline: 2px solid #ded6ff; outline-offset: 3px; }
 :root{--v34-bg:#08090c;--v34-panel:#11141b;--v34-panel2:#171b24;--v34-line:#292f3c;--v34-text:#f7f8fb;--v34-muted:#9098a8;--v34-accent:#7c5cff;--v34-accent2:#a58cff;--v34-good:#5fe0ad;--v34-danger:#ff647c}
 html.mb-v34,body.mb-v34{background:var(--v34-bg);overscroll-behavior:none}
 body.mb-v34{min-height:100dvh;color:var(--v34-text)}
