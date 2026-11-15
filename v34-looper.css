@@ -1,5 +1,6 @@
 /* Music & Beats V34 — mobile-first backing looper */
 .home-support { margin-top: 16px; }
+.v34-home-card > .home-support { margin: 0 0 16px; }
 .home-support-link {
   display: inline-flex;
   align-items: center;
