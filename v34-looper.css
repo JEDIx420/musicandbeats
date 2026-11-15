@@ -4,17 +4,22 @@
 .home-support-link {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-  min-height: 38px;
-  padding: 0 12px;
-  border: 1px solid #a897ff55;
-  border-radius: 10px;
-  color: #ded6ff;
-  background: #a897ff13;
-  font-size: 13px;
+  justify-content: center;
+  gap: 11px;
+  min-height: 44px;
+  padding: 0 16px;
+  border: 1px solid #a897ff80;
+  border-radius: 14px;
+  color: #eee8ff;
+  background: linear-gradient(145deg, #302649, #1d192d);
+  box-shadow: inset 0 1px 0 #ded6ff20;
+  font-size: 15px;
+  font-weight: 650;
   text-decoration: none;
 }
-.home-support-link:hover { background: #a897ff30; }
+.v34-home-card .home-support-link { width: min(260px, 100%); min-height: 54px; font-size: 16px; }
+.home-support-mark { color: #c9bbff; font-size: 20px; line-height: 1; }
+.home-support-link:hover { background: #3b2e56; border-color: #c9bbff; }
 .home-support-link:focus-visible { outline: 2px solid #ded6ff; outline-offset: 3px; }
 :root{--v34-bg:#08090c;--v34-panel:#11141b;--v34-panel2:#171b24;--v34-line:#292f3c;--v34-text:#f7f8fb;--v34-muted:#9098a8;--v34-accent:#7c5cff;--v34-accent2:#a58cff;--v34-good:#5fe0ad;--v34-danger:#ff647c}
 html.mb-v34,body.mb-v34{background:var(--v34-bg);overscroll-behavior:none}
